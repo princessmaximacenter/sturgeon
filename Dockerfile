@@ -46,10 +46,12 @@ RUN apt update \
     && useradd -s /bin/bash -m docker \
     && usermod -a -G staff docker
 
-WORKDIR /opt/guppy/
+WORKDIR /opt/
 
 RUN mv /opt/sturgeon/ont-guppy_6.5.7_linux64.tar.gz ./ && \
-    tar -xf ont-guppy_6.5.7_linux64.tar.gz
+    tar -xf ont-guppy_6.5.7_linux64.tar.gz && \
+    rm ont-guppy_6.5.7_linux64.tar.gz
+
 
 USER docker
 WORKDIR /
