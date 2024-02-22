@@ -1,1 +1,7 @@
 ./Dockerfile
+./Dockerfile*
+./sturgeon/include/models/*.zip
+./test
+./*.tar
+./*Rproj
+./.*

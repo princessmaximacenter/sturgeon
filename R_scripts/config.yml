@@ -1,0 +1,7 @@
+---
+peroperative_seq_functions_shorter:
+  refgenome: "/home/docker/chm13v2.0.fa"
+  guppy: "/opt/ont-guppy/"
+  probes: "probelocs_chm13.bed"
+  model: "/opt/sturgeon/sturgeon/include/models/brainstem.zip"
+  modelname: "brainstem"

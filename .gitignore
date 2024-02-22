@@ -85,3 +85,7 @@ bin
 
 dev
 tmp
+.Rproj.user
+
+sturgeon/include/models/*.zip
+./test
