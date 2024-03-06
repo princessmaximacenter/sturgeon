@@ -10,7 +10,16 @@ source(paste0(source_dir, "/peroperative_seq_functions_shorter.R"))
 
 main <- function(args = NULL){
   args <- getArgs(args)                                                       # Collect User Args
-  system(paste("rm -f", args$wrapper))                                        # Clean up flag file if exists
+  if(file.exists(paste0(args$wrapper, "/wrapper_stop.txt"))){
+    system(paste0("rm -f ", args$wrapper, "/wrapper_running.txt ", args$wrapper, "/wrapper_stop.txt"))
+  } else {
+    if (file.exists(paste0(args$wrapper, "/wrapper_running.txt"))) {
+      stop(paste0("ERROR: The ", args$wrapper, "/wrapper_running.txt file exists. This could mean sturgeon is ",
+      "already running. Only one sturgeon can be running at the time! ",
+      "If this is not the case delete this file and try again."))
+    }
+  }
+
   iteration <- 1                                                              # Counter to decide what to run when
   system(paste("mkdir -p", args$output))                                      # Make output dir
   running <- T                                        # TODO: find more elegant way to keep running and kill the script
@@ -22,11 +31,16 @@ main <- function(args = NULL){
   write("start", file = "processed_files.txt", append = T)
   
   while(running == T) {
-    
+
+    if(file.exists(paste0(args$wrapper, "/wrapper_stop.txt"))){
+      running = FALSE
+      break
+    }
+
     # Keep track of processed files
     processed_fast5s <- read.table("processed_files.txt")
     made_fast5s <- list.files(args$input)
-    
+
     # Check if there are new files, if not, wait 30 seconds and check again
     new_fast5s <- made_fast5s[!made_fast5s%in%processed_fast5s$V1]
     if(length(new_fast5s) == 0) {
@@ -34,32 +48,27 @@ main <- function(args = NULL){
       Sys.sleep(30)
       next    # Ignores the rest of the code and enters the next loop
     }
-    
+
     #find out if they are ready for processing ie. if it contains 4000 reads
     fast5_cpy <- get_fast5_copy(new_fast5s, args$input, args$sizePod5)
-    
+
     #if it is not complete, wait 30 seconds and start over.
     if(length(fast5_cpy) == 0) {
       print("No complete files found to copy, waiting 30 seconds...")
-      Sys.sleep(30)
       next
     }
     for(f5 in fast5_cpy){
       #process files
+      print(iteration)
       progress <- process_file(f5, iteration, progress, args$output, 
                                args$input, !args$useClassifiedBarcode, args$barcode, args$wrapper)
       if(iteration %% args$cnvFreq == 0){
         plot_cnv(args$output, iteration)
-        Sys.sleep(5)
       }
       iteration = iteration + 1
     }
   }
-  
-  #end sturgeon
-  system("pkill -f sturgeon")
-  
-  plot_cnv_from_live_dir_DNAcopy(args$output)
+  print("Live processing has stopped.")
 }
 
 getArgs <- function(args = NULL){
@@ -83,7 +92,7 @@ getArgs <- function(args = NULL){
                                When a megalodon instance is running, this file will be created and removed once megalodon is done. 
                                If this file already exists, this script will wait until it is gone before starting a new megalodon, to prevent a system crash. 
                                Remove it manually, if no other version of this script is running or else it will wait forever.",
-                               default = "/home/docker/wrapper_running.txt")
+                               default = "/home/docker/")
   p <- argparser::add_argument(parser = p, arg = "--barcode",
                                help = "Barcode used in the library preparation",
                                type = "numeric", default = 18)
@@ -135,40 +144,52 @@ process_file <- function(f5, iteration, progress, output_folder,
   #make sure no wrapper is running already, this will overload the GPU RAM
   holdup <- T
   while(holdup){
-    if(file.exists(wrapper)){ Sys.sleep(1) } else{ holdup <- F }
+    if(file.exists(paste0(wrapper, "/wrapper_running.txt"))){ Sys.sleep(1) } else{ holdup <- F }
   }
   #make a file preventing someone else from starting a megalodon run
-  system(paste("touch", wrapper))
+  system(paste0("touch ", wrapper, "/wrapper_running.txt"))
   
   print(paste("starting wrapper for file:", f5))
   #wrapper starts guppy and extracts reads from the correct barcode
   wrappert_guppy_R10_guppy6.5(output_folder, paste0(input_folder,"/", f5), iteration = iteration, 
                               bcoverride = barcode, include_unclassified = include_unclassified)
-  system(paste("rm", wrapper))
+  system(paste0("rm ", wrapper, "/wrapper_running.txt"))
   
   write(f5, file="processed_files.txt", append=T)
   
   #add iteration results to the progress dataframe, and make a plot
-  progress <- plot_process(progress, output_folder)
+  progress <- plot_process(progress, output_folder, iteration)
   Sys.sleep(5)
   
   return(progress)
 }
 
-plot_process <- function(progress, output_folder){
+plot_process <- function(progress, output_folder, iteration){
   progress <- add_and_plot(progress, output_folder)
-  try(write.table(progress, file=paste0(output_folder, "/classifier_progress.txt"), quote=F, row.names = F), silent=T)
-  pdf(file=paste0(output_folder, "/confidence_over_time_plot.pdf"))
-  try(confidence_over_time_plot(progress), silent=T)
+  write.table(progress, file=paste0(output_folder, "/classifier_progress_", iteration, ".txt"), quote=F, row.names = F)
+
+  pdf(file=paste0(output_folder, "/confidence_over_time_plot_", iteration, ".pdf"))
+  tmpDev <- dev.cur()
+  png(file=paste0(output_folder, "/confidence_over_time_plot_", iteration, ".png"))
+
+  confidence_over_time_plot(progress)
+
+  dev.copy(which=tmpDev)
+  dev.off()
   dev.off()
   return(progress)
 }
 
 plot_cnv <- function(output_folder, iteration){
-  pdf(file=paste0(output_folder, "/CNV_plot_iteration", iteration, ".pdf"), useDingbats = F)
+  pdf(file=paste0(output_folder, "/CNV_plot_iteration_", iteration, ".pdf"), useDingbats = F)
+  tmpDev <- dev.cur()
+  png(file=paste0(output_folder, "/CNV_plot_iteration_", iteration, ".png"))
+
   plot_cnv_from_live_dir_DNAcopy(output_folder)
+
+  dev.copy(which=tmpDev)
   dev.off()
-  try(system(paste("open", output_folder, "/CNV_plot_iteration", iteration, ".pdf")), silent=T)
+  dev.off()
 }
 
 main()

@@ -138,6 +138,8 @@ wrappert_guppy_R10_guppy6.5 <- function(main_folder, fast5, iteration, bcoverrid
 
   system(paste(paste0(SOURCE_DIR, "/sturgeon_guppy.sh"), main_folder, paste0(SOURCE_DIR, CONFIG$probes), CONFIG$model))
 
+  system(paste0("cp ", main_folder, "/merged_probes_methyl_calls_", CONFIG$modelname,".pdf ", main_folder,
+                "/merged_probes_methyl_calls_", CONFIG$modelname,"_", iteration, ".pdf"))
 
 }
 
@@ -239,9 +241,9 @@ plot_cnv_from_live_dir_DNAcopy=function(directory){
   #' @param directory Directory to write to
   # Create output directory if it doesn't exist else cleanup previous merged bam file
   if(!dir.exists(paste0(directory,"/merged_bams/"))) {
-    system(paste0("mkdir ", directory,"/merged_bams/"))
+    system(paste0("mkdir ", directory, "/merged_bams/"))
   } else {
-    system(paste0("rm ", directory,"/merged_bams/merged_bam.bam"))
+    system(paste0("rm ", directory, "/merged_bams/merged_bam.bam"))
   }
   # Merge all bam files
   system(paste0("samtools merge -@ 10 -O BAM -o ",directory,"/merged_bams/merged_bam.bam ", directory,"/*.bam" ))

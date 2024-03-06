@@ -2,6 +2,6 @@
 ./Dockerfile*
 ./sturgeon/include/models/*.zip
 ./test
-./*.tar
+./sturgeon.tar*
 ./*Rproj
 ./.*
