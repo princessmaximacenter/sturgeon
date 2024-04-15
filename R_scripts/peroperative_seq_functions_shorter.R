@@ -126,20 +126,24 @@ wrappert_guppy_R10_guppy6.5 <- function(main_folder, fast5, iteration, bcoverrid
                          "--disable_qscore_filtering --min_score_barcode_front 6 ",
                          "--align_ref ", CONFIG$refgenome, " --barcode_kits SQK-RBK114-24 ",
                          "--chunk_size 2000 --chunks_per_runner 256 --chunks_per_caller 10000 --gpu_runners_per_device 4  --num_base_mod_threads 4 --allow_inferior_barcodes")
-
+  print(paste0("FLAG: starting guppy for iteration_", iteration))
   system(guppy_command)
 
   barcode = ifelse(nchar(bcoverride)==1, paste0("0", bcoverride), bcoverride)
-  system(paste0("mv ", out_folder,"/guppy_out/barcode",barcode,"/*.bam ",main_folder,"/guppy_output_it",iteration,".bam"))
+  system(paste0("mv ", out_folder,"/guppy_out/barcode",barcode,"/*.bam ",main_folder,"/guppy_output_it_iteration_",iteration,".bam"))
 
   #include unclassified reads yes or no?
   if(include_unclassified==T){
-    system(paste0("mv ", out_folder,"/guppy_out/unclassified/*.bam ",main_folder,"/guppy_output_it",iteration,"_unclassified.bam"))}
+    system(paste0("mv ", out_folder,"/guppy_out/unclassified/*.bam ",main_folder,"/guppy_output_it_iteration_",iteration,"_unclassified.bam"))}
 
+  print(paste0("FLAG: starting sturgeon for iteration_", iteration))
   system(paste(paste0(SOURCE_DIR, "/sturgeon_guppy.sh"), main_folder, paste0(SOURCE_DIR, CONFIG$probes), CONFIG$model))
 
   system(paste0("cp ", main_folder, "/merged_probes_methyl_calls_", CONFIG$modelname,".pdf ", main_folder,
-                "/merged_probes_methyl_calls_", CONFIG$modelname,"_", iteration, ".pdf"))
+                "/merged_probes_methyl_calls_", CONFIG$modelname, "_iteration_", iteration, ".pdf"))
+
+  system(paste0("cp ", main_folder, "/merged_probes_methyl_calls_", CONFIG$modelname,".png ", main_folder,
+                "/merged_probes_methyl_calls_", CONFIG$modelname, "_iteration_", iteration, ".png"))
 
 }
 

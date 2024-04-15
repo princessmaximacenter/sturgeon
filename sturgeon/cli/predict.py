@@ -98,6 +98,10 @@ def predict(
                     output_path, 
                     bed_name + '_{}.pdf'.format(Path(model).stem)
                 )
+                output_png = os.path.join(
+                    output_path,
+                    bed_name + '_{}.png'.format(Path(model).stem)
+                )
                 logging.info('Plotting results to: {}'.format(output_pdf))
 
                 with zipfile.ZipFile(model, 'r') as zipf:
@@ -111,7 +115,8 @@ def predict(
                 plot_prediction(
                     prediction_df = prediction_df,
                     color_dict = color_dict,
-                    output_file = output_pdf
+                    output_file = output_pdf,
+                    output_ong = output_png
                 )
             else:
                 logging.info('Skipping plotting results')

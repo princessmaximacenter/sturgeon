@@ -10,6 +10,7 @@ def plot_prediction(
     prediction_df: pd.DataFrame,
     output_file: str,
     color_dict: Optional[dict] = None,
+    output_png: Optional[str] = ""
 ):
 
     SMALL_SIZE = 8
@@ -59,6 +60,8 @@ def plot_prediction(
     plt.title(title)
     plt.tight_layout()
     plt.savefig(output_file, bbox_inches="tight", dpi = 300)
+    if output_png != "":
+        plt.savefig(output_png, bbox_inches="tight", dpi=300)
     plt.close()
 
 

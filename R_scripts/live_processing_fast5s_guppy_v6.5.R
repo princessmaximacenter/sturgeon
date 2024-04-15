@@ -59,12 +59,13 @@ main <- function(args = NULL){
     }
     for(f5 in fast5_cpy){
       #process files
-      print(iteration)
+      print(paste0("FLAG: starting processing of iteration_", iteration)
       progress <- process_file(f5, iteration, progress, args$output, 
                                args$input, !args$useClassifiedBarcode, args$barcode, args$wrapper)
       if(iteration %% args$cnvFreq == 0){
         plot_cnv(args$output, iteration)
       }
+      print(paste0("FLAG: iteration_", iteration, " completed!"))
       iteration = iteration + 1
     }
   }
@@ -166,12 +167,12 @@ process_file <- function(f5, iteration, progress, output_folder,
 
 plot_process <- function(progress, output_folder, iteration){
   progress <- add_and_plot(progress, output_folder)
-  write.table(progress, file=paste0(output_folder, "/classifier_progress_", iteration, ".txt"), quote=F, row.names = F)
+  write.table(progress, file=paste0(output_folder, "/classifier_progress_iteration_", iteration, ".tsv"), quote=F, row.names = F, sep = "\t")
 
-  pdf(file=paste0(output_folder, "/confidence_over_time_plot_", iteration, ".pdf"))
+  pdf(file=paste0(output_folder, "/confidence_over_time_plot_iteration_", iteration, ".pdf"))
   tmpDev <- dev.cur()
-  png(file=paste0(output_folder, "/confidence_over_time_plot_", iteration, ".png"))
-
+  png(file=paste0(output_folder, "/confidence_over_time_plot_iteration_", iteration, ".png"))
+  print(paste0("FLAG: making confidence over time plot for iteration_", iteration))
   confidence_over_time_plot(progress)
 
   dev.copy(which=tmpDev)
@@ -184,7 +185,7 @@ plot_cnv <- function(output_folder, iteration){
   pdf(file=paste0(output_folder, "/CNV_plot_iteration_", iteration, ".pdf"), useDingbats = F)
   tmpDev <- dev.cur()
   png(file=paste0(output_folder, "/CNV_plot_iteration_", iteration, ".png"))
-
+  print(paste0("FLAG: creating CNV plot for iteration_", iteration))
   plot_cnv_from_live_dir_DNAcopy(output_folder)
 
   dev.copy(which=tmpDev)
