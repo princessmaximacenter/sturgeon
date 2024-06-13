@@ -36,6 +36,7 @@ def live(
     model_files: List[str],
     source: str,
     probes_file: str,
+    reference_genome: str,
     margin: int,
     neg_threshold: float,
     pos_threshold: float,
@@ -52,6 +53,13 @@ def live(
 
     if not os.path.exists(output_path):
         os.makedirs(output_path)
+
+    if reference_genome is not None:
+        probes_file = os.path.join(
+            os.path.dirname(__file__), 
+            '../include/static', 
+            'probes_{}.bed'.format(reference_genome)
+        )
 
     if source == 'guppy':
 
@@ -468,7 +476,7 @@ def live_megalodon(
                     )
                     continue
 
-                inference_session, array_probes_df, decoding_dict, temperatures, weight_matrix, merge_dict = load_model(model)    
+                inference_session, array_probes_df, decoding_dict, temperatures, merge_dict = load_model(model)    
 
                 logging.info("Starting prediction")
                 prediction_df = predict_sample(
@@ -476,7 +484,6 @@ def live_megalodon(
                     bed_file = bed_output_file,
                     decoding_dict = deepcopy(decoding_dict),
                     probes_df = array_probes_df,
-                    weight_matrix = weight_matrix,
                     temperatures = temperatures,
                     merge_dict = merge_dict,
                 )
