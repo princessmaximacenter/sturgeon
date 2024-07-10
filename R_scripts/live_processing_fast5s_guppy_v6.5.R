@@ -10,6 +10,7 @@ source(paste0(source_dir, "/peroperative_seq_functions_shorter.R"))
 
 main <- function(args = NULL){
   args <- getArgs(args)                                                       # Collect User Args
+  print("Starting live processing")
   if(file.exists(paste0(args$wrapper, "/wrapper_stop.txt"))){
     system(paste0("rm -f ", args$wrapper, "/wrapper_running.txt ", args$wrapper, "/wrapper_stop.txt"))
   } else {
@@ -44,7 +45,7 @@ main <- function(args = NULL){
     # Check if there are new files, if not, wait 30 seconds and check again
     new_fast5s <- made_fast5s[!made_fast5s%in%processed_fast5s$V1]
     if(length(new_fast5s) == 0) {
-      print("No new files, waiting 30 seconds...")
+      print("FLAG: No new files, waiting 30 seconds...")
       Sys.sleep(30)
       next    # Ignores the rest of the code and enters the next loop
     }
@@ -55,11 +56,16 @@ main <- function(args = NULL){
     #if it is not complete, wait 30 seconds and start over.
     if(length(fast5_cpy) == 0) {
       print("No complete files found to copy, waiting 30 seconds...")
+      Sys.sleep(30)
       next
     }
     for(f5 in fast5_cpy){
+      if(file.exists(paste0(args$wrapper, "/wrapper_stop.txt"))){
+      running = FALSE
+      break
+    }
       #process files
-      print(paste0("FLAG: starting processing of iteration_", iteration)
+      print(paste0("FLAG: starting processing of iteration_", iteration))
       progress <- process_file(f5, iteration, progress, args$output, 
                                args$input, !args$useClassifiedBarcode, args$barcode, args$wrapper)
       if(iteration %% args$cnvFreq == 0){
@@ -93,7 +99,7 @@ getArgs <- function(args = NULL){
                                When a megalodon instance is running, this file will be created and removed once megalodon is done. 
                                If this file already exists, this script will wait until it is gone before starting a new megalodon, to prevent a system crash. 
                                Remove it manually, if no other version of this script is running or else it will wait forever.",
-                               default = "/home/docker/")
+                               default = "/home/docker/wrapper/")
   p <- argparser::add_argument(parser = p, arg = "--barcode",
                                help = "Barcode used in the library preparation",
                                type = "numeric", default = 18)
@@ -167,29 +173,24 @@ process_file <- function(f5, iteration, progress, output_folder,
 
 plot_process <- function(progress, output_folder, iteration){
   progress <- add_and_plot(progress, output_folder)
-  write.table(progress, file=paste0(output_folder, "/classifier_progress_iteration_", iteration, ".tsv"), quote=F, row.names = F, sep = "\t")
+  write.table(progress, file=paste0(output_folder, "/iteration_", iteration, "/classifier_progress_iteration_", iteration, ".tsv"), quote=F, row.names = F, sep = "\t")
 
-  pdf(file=paste0(output_folder, "/confidence_over_time_plot_iteration_", iteration, ".pdf"))
-  tmpDev <- dev.cur()
-  png(file=paste0(output_folder, "/confidence_over_time_plot_iteration_", iteration, ".png"))
+  dev.new()
   print(paste0("FLAG: making confidence over time plot for iteration_", iteration))
   confidence_over_time_plot(progress)
 
-  dev.copy(which=tmpDev)
-  dev.off()
+  dev.copy2pdf(file=paste0(output_folder, "/iteration_", iteration, "/confidence_over_time_plot_iteration_", iteration, ".pdf"))
+  dev.copy(png, file=paste0(output_folder, "/iteration_", iteration, "/confidence_over_time_plot_iteration_", iteration, ".png"))
   dev.off()
   return(progress)
 }
 
 plot_cnv <- function(output_folder, iteration){
-  pdf(file=paste0(output_folder, "/CNV_plot_iteration_", iteration, ".pdf"), useDingbats = F)
-  tmpDev <- dev.cur()
-  png(file=paste0(output_folder, "/CNV_plot_iteration_", iteration, ".png"))
+  dev.new()
   print(paste0("FLAG: creating CNV plot for iteration_", iteration))
   plot_cnv_from_live_dir_DNAcopy(output_folder)
-
-  dev.copy(which=tmpDev)
-  dev.off()
+  dev.copy2pdf(file=paste0(output_folder, "/iteration_", iteration, "/CNV_plot_iteration_", iteration, ".pdf"))
+  dev.copy(png, file=paste0(output_folder, "/iteration_", iteration, "/CNV_plot_iteration_", iteration, ".png"))
   dev.off()
 }
 

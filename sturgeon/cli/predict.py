@@ -116,7 +116,7 @@ def predict(
                     prediction_df = prediction_df,
                     color_dict = color_dict,
                     output_file = output_pdf,
-                    output_ong = output_png
+                    output_png = output_png
                 )
             else:
                 logging.info('Skipping plotting results')

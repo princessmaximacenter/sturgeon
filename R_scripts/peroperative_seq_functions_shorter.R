@@ -139,10 +139,10 @@ wrappert_guppy_R10_guppy6.5 <- function(main_folder, fast5, iteration, bcoverrid
   print(paste0("FLAG: starting sturgeon for iteration_", iteration))
   system(paste(paste0(SOURCE_DIR, "/sturgeon_guppy.sh"), main_folder, paste0(SOURCE_DIR, CONFIG$probes), CONFIG$model))
 
-  system(paste0("cp ", main_folder, "/merged_probes_methyl_calls_", CONFIG$modelname,".pdf ", main_folder,
+  system(paste0("cp ", main_folder, "/merged_probes_methyl_calls_", CONFIG$modelname,".pdf ", out_folder,
                 "/merged_probes_methyl_calls_", CONFIG$modelname, "_iteration_", iteration, ".pdf"))
 
-  system(paste0("cp ", main_folder, "/merged_probes_methyl_calls_", CONFIG$modelname,".png ", main_folder,
+  system(paste0("cp ", main_folder, "/merged_probes_methyl_calls_", CONFIG$modelname,".png ", out_folder,
                 "/merged_probes_methyl_calls_", CONFIG$modelname, "_iteration_", iteration, ".png"))
 
 }

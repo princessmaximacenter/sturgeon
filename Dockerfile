@@ -49,12 +49,12 @@ COPY . /opt/sturgeon/
 
 ENV CRAN_R_GPG_FINGERPRINT=${CRAN_R_GPG_FINGERPRINT}
 # localize cnv-tools scripts, htslib, and bcftools
-
-RUN apt -y update && apt-get -y install gnupg software-properties-common wget && apt -y update  \
-    && wget https://developer.download.nvidia.com/compute/cuda/11.3.1/local_installers/cuda-repo-debian10-11-3-local_11.3.1-465.19.01-1_amd64.deb  \
-    && dpkg -i cuda-repo-debian10-11-3-local_11.3.1-465.19.01-1_amd64.deb \
-    && apt-key add /var/cuda-repo-debian10-11-3-local/7fa2af80.pub  \
-    && add-apt-repository contrib  \
+ENV DEBIAN_FRONTEND noninteractive
+RUN apt -y update && apt-get -y install gnupg software-properties-common wget && apt -y update
+RUN wget https://developer.download.nvidia.com/compute/cuda/11.3.1/local_installers/cuda-repo-debian10-11-3-local_11.3.1-465.19.01-1_amd64.deb  \
+    && dpkg -i cuda-repo-debian10-11-3-local_11.3.1-465.19.01-1_amd64.deb
+RUN apt-key add /var/cuda-repo-debian10-11-3-local/7fa2af80.pub  \
+    && add-apt-repository contrib \
     && apt-get update \
     && apt-get -y install cuda
 #    && apt-key adv --fetch-keys "https://developer.download.nvidia.com/compute/cuda/repos/debian10/x86_64/3bf863cc.pub" \
@@ -101,6 +101,7 @@ RUN apt update \
     && rm -rf /tmp/* \
     && rm -rf /var/lib/apt/lists/*
 
+RUN rm -rf /usr/lib/nvidia
 
 USER docker
 WORKDIR /
