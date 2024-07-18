@@ -11,14 +11,14 @@ cran_mirror <- "https://cran.r-project.org/"
 proportion_cpu_used <- 1
 
 ## list of libraries/packages and version requirements
-packages <-  list(yaml = "2.3.8",
-                  argparser = "0.7.1",
+packages <-  list(yaml = "2.3.9",
+                  argparser = "0.7.2",
                   docstring = "1.0.0",
-                  rstudioapi = "0.15.0")
+                  rstudioapi = "0.16.0")
 
 # Biocoductor libraries are version bound to the BiocManager version
 # so we only need BiocManager version and names of libraries to install
-bioconductor_version <- "3.10"
+bioconductor_version <- "3.19"
 bio_packages <- c("QDNAseq", "DNAcopy")
 
 

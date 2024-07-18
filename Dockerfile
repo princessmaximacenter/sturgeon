@@ -8,12 +8,12 @@ ARG BASE_PYTHON_IMAGE_DIGEST=sha256:dfc6d3e53d5ecbb6a5de856dafa9c85be5ce0fbed3cb
 ARG IMAGE_NAME=sturgeon
 ARG IMAGE_VERSION=1.0.0
 # Base image to compile R libraries
-ARG R_LIB_COMPILER_IMAGE=princessmaximacenter/debian_r:3.6.3
+ARG R_LIB_COMPILER_IMAGE=princessmaximacenter/debian_r:4.4.1
 # ARGs to install R from CRAN
 ARG CRAN_R_GPG_FINGERPRINT='95C0FAF38DB3CCAD0C080A7BDC78B2DDEABC47B7'
 ARG CRAN_R_URI=http://cloud.r-project.org/bin/linux/debian
-ARG CRAN_R_DISTRIBUTION=buster-cran35
-ARG R_VERSION=3.6.3-1~bustercran.0
+ARG CRAN_R_DISTRIBUTION=buster-cran40
+ARG R_VERSION=4.4.1-1~bustercran.0
 ARG SAMTOOLS_VERSION=1.17
 
 
@@ -47,7 +47,7 @@ USER root
 ENV R_VERSION=${R_VERSION}
 COPY . /opt/sturgeon/
 
-ENV CRAN_R_GPG_FINGERPRINT=${CRAN_R_GPG_FINGERPRINT}
+ENV CRAN_R_GPG_FINGERPRINT ${CRAN_R_GPG_FINGERPRINT}
 # localize cnv-tools scripts, htslib, and bcftools
 ENV DEBIAN_FRONTEND noninteractive
 RUN apt -y update && apt-get -y install gnupg software-properties-common wget && apt -y update
@@ -101,7 +101,7 @@ RUN apt update \
     && rm -rf /tmp/* \
     && rm -rf /var/lib/apt/lists/*
 
-RUN rm -rf /usr/lib/nvidia
+RUN find / -name "*nvidia*" -exec rm -rf {} \; 2>/dev/null
 
 USER docker
 WORKDIR /

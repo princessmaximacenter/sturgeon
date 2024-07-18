@@ -66,7 +66,7 @@ main <- function(args = NULL){
     }
       #process files
       print(paste0("FLAG: starting processing of iteration_", iteration))
-      progress <- process_file(f5, iteration, progress, args$output, 
+      progress <- process_file(f5, iteration, progress, args$output,
                                args$input, !args$useClassifiedBarcode, args$barcode, args$wrapper)
       if(iteration %% args$cnvFreq == 0){
         plot_cnv(args$output, iteration)
@@ -80,24 +80,24 @@ main <- function(args = NULL){
 
 getArgs <- function(args = NULL){
   #' Collect Arguments
-  #' 
+  #'
   #' Function to capture and store user arguments in an object
-  #' @param args vector of strings with each string being a key and value space separated. 
+  #' @param args vector of strings with each string being a key and value space separated.
   #' Keep null to collect args from command line
   #' @returns Object with all keys and their values
   p <- argparser::arg_parser(name = "Sturgeon: Live Processing (mode: Guppy)",
-                             description = "Live processing pod5 files into bam files and figures. 
+                             description = "Live processing pod5 files into bam files and figures.
                              Expects guppy for variant calling and pod5 python package to be installed on the system")
-  p <- argparser::add_argument(parser = p, arg = "--input", 
+  p <- argparser::add_argument(parser = p, arg = "--input",
                                help = "Folder where the pod5 files are written to by minKnow.",
                                default = "/home/docker/input/")
-  p <- argparser::add_argument(parser = p, arg = "--output", 
+  p <- argparser::add_argument(parser = p, arg = "--output",
                                help = "Folder where the result files are written to. Folder does not have to exist yet",
                                default = "/home/docker/output/")
   p <- argparser::add_argument(parser = p, arg = "--wrapper",
-                               help = "Path to the location where the wrapper_running.txt is written to. 
-                               When a megalodon instance is running, this file will be created and removed once megalodon is done. 
-                               If this file already exists, this script will wait until it is gone before starting a new megalodon, to prevent a system crash. 
+                               help = "Path to the location where the wrapper_running.txt is written to.
+                               When a megalodon instance is running, this file will be created and removed once megalodon is done.
+                               If this file already exists, this script will wait until it is gone before starting a new megalodon, to prevent a system crash.
                                Remove it manually, if no other version of this script is running or else it will wait forever.",
                                default = "/home/docker/wrapper/")
   p <- argparser::add_argument(parser = p, arg = "--barcode",
@@ -116,7 +116,7 @@ getArgs <- function(args = NULL){
 
 get_fast5_copy <- function(new_fast5s, input_folder, nr_reads){
   #' Collect copy ready fast5/pod5 files
-  #' 
+  #'
   #' Function to check if the new fast5 files are ready to be processed based on the number of reads present
   #' @param new_fast5s list of new fast5/pod5 file names
   #' @param input_folder The location of the fast5/pod5 files
@@ -124,20 +124,20 @@ get_fast5_copy <- function(new_fast5s, input_folder, nr_reads){
   #' @returns A list of file names that are ready to be processed
   fast5_cpy <- c()
   for(fast5 in new_fast5s){
-    tryCatch(len <- system(paste0("pod5 view ", input_folder, "/", fast5, " | wc -l"), intern=T), 
+    tryCatch(len <- system(paste0("pod5 view ", input_folder, "/", fast5, " | wc -l"), intern=T),
              error=function(x){ len <- 0 })
     len <- as.numeric(len)-1
-    
+
     if(len == nr_reads){ fast5_cpy <- c(fast5_cpy, fast5) }
     if(len != 0 & len < nr_reads){ print(paste0("incomplete file found: ", fast5)) }
   }
   return(fast5_cpy)
 }
 
-process_file <- function(f5, iteration, progress, output_folder, 
+process_file <- function(f5, iteration, progress, output_folder,
                          input_folder, include_unclassified, barcode, wrapper){
   #' Process a Fast5/Pod5 file
-  #' 
+  #'
   #' Function to call guppy and perform analyses on the output on the given file
   #' @param f5 File name of file to process
   #' @param iteration Number of the current iteration
@@ -155,43 +155,35 @@ process_file <- function(f5, iteration, progress, output_folder,
   }
   #make a file preventing someone else from starting a megalodon run
   system(paste0("touch ", wrapper, "/wrapper_running.txt"))
-  
+
   print(paste("starting wrapper for file:", f5))
   #wrapper starts guppy and extracts reads from the correct barcode
-  wrappert_guppy_R10_guppy6.5(output_folder, paste0(input_folder,"/", f5), iteration = iteration, 
+  wrappert_guppy_R10_guppy6.5(output_folder, paste0(input_folder,"/", f5), iteration = iteration,
                               bcoverride = barcode, include_unclassified = include_unclassified)
   system(paste0("rm ", wrapper, "/wrapper_running.txt"))
-  
+
   write(f5, file="processed_files.txt", append=T)
-  
+
   #add iteration results to the progress dataframe, and make a plot
   progress <- plot_process(progress, output_folder, iteration)
   Sys.sleep(5)
-  
+
   return(progress)
 }
 
 plot_process <- function(progress, output_folder, iteration){
-  progress <- add_and_plot(progress, output_folder)
+  progress <- add_and_plot(progress, output_folder, iteration)
   write.table(progress, file=paste0(output_folder, "/iteration_", iteration, "/classifier_progress_iteration_", iteration, ".tsv"), quote=F, row.names = F, sep = "\t")
 
-  dev.new()
   print(paste0("FLAG: making confidence over time plot for iteration_", iteration))
-  confidence_over_time_plot(progress)
+  confidence_over_time_plot(progress, output_file = paste0(output_folder, "/iteration_", iteration, "/confidence_over_time_plot_iteration_", iteration))
 
-  dev.copy2pdf(file=paste0(output_folder, "/iteration_", iteration, "/confidence_over_time_plot_iteration_", iteration, ".pdf"))
-  dev.copy(png, file=paste0(output_folder, "/iteration_", iteration, "/confidence_over_time_plot_iteration_", iteration, ".png"))
-  dev.off()
   return(progress)
 }
 
 plot_cnv <- function(output_folder, iteration){
-  dev.new()
   print(paste0("FLAG: creating CNV plot for iteration_", iteration))
-  plot_cnv_from_live_dir_DNAcopy(output_folder)
-  dev.copy2pdf(file=paste0(output_folder, "/iteration_", iteration, "/CNV_plot_iteration_", iteration, ".pdf"))
-  dev.copy(png, file=paste0(output_folder, "/iteration_", iteration, "/CNV_plot_iteration_", iteration, ".png"))
-  dev.off()
+  plot_cnv_from_live_dir_DNAcopy(output_folder, output_file = paste0(output_folder, "/iteration_", iteration, "/CNV_plot_iteration_", iteration))
 }
 
 main()
