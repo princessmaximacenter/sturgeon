@@ -11,6 +11,12 @@ If you use Sturgeon, please cite our work and consider starring this repository 
 ```
 Vermeulen, C., Pagès-Gallego, M., Kester, L. et al. Ultra-fast deep-learned CNS tumour classification during surgery. Nature (2023). https://doi.org/10.1038/s41586-023-06615-2
 ```
+## System requirements
+Software:
+```
+modkit (or Rust/Cargo for installation): https://github.com/nanoporetech/modkit
+
+```
 
 ## Installation
 
