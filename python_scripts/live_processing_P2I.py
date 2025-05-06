@@ -4,38 +4,23 @@ import signal
 import subprocess
 import click
 import pandas as pd
-import yaml
+
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from pathlib import Path
-from typing import Tuple
 
-from live_sturgeon_plotting import plot_confidence_over_time, write_progress_tsv
-
-# ==========================
-# TODO
-# Load in config.yml
-# Create plot for CNV
-# Add a check that logs which files have been processed and checks if any files have been missed maybe
-# Create log for processed files
-# modkit needs to be installed on the P2
-# How to deal with the gridion? For now maybe just a branch for the P2 is ok.
-# ==========================
-
-
+from live_sturgeon_plotting import plot_confidence_over_time, write_progress_tsv, plot_CNV_bam
 
 
 # ==========================
 # Constants
 # ==========================
-DEFAULT_WATCH_DIR: Path = Path("./test_bam_output")
-DEFAULT_WATCH_TEST_DIR: Path = Path("./test_files")
-DEFAULT_SCRIPT: Path = Path("/Users/k.v.cammel/Documents/Projects/P2_wrapper/sturgeon_P2.sh")
+DEFAULT_WATCH_DIR: Path = Path("./bam_pass")
+DEFAULT_SCRIPT: Path = Path("/Users/k.v.cammel/Developer/cold_setup_sturgeon/sturgeon_P2.sh")
 DEFAULT_OUT_DIR: Path = Path("./sturgeon_results")
-DEFAULT_TEST_SCRIPT: Path = Path("test_run.sh")
-DEFAULT_SUFFIXES: Tuple[str, str] = (".txt", ".bam")
+DEFAULT_SUFFIXES: str = ".bam"
 DEFAULT_LOCK_FILE: Path = Path("script.lock")
-DEFAULT_MODEL_FILE: Path = Path("/Users/k.v.cammel/Developer/public_repos/sturgeon/sturgeon/include/models/general.zip")
+DEFAULT_MODEL_FILE: Path = Path("/Users/k.v.cammel/Developer/cold_setup_sturgeon/sturgeon/include/models/general.zip")
 
 
 # ==========================
@@ -91,7 +76,7 @@ class NewBamFileHandler(FileSystemEventHandler):
             subprocess.run(["sh", self.script_path, new_file, self.output, self.model, str(self.iteration)], check=True)
             ##Copy output files with iteration number to out file
             if (self.iteration % self.freq == 0):
-                self.plot_cnv()
+                self.plot_cnv(new_file)
             self.plot_process()
             print(f"FLAG: iteration_{self.iteration} completed!")
             self.iteration += 1
@@ -111,9 +96,14 @@ class NewBamFileHandler(FileSystemEventHandler):
 
 
 
-    def plot_cnv(self) -> None:
-        """Placeholder for CNV plotting logic."""
-        print(f"FLAG: Creating CNV plot for iteration {iteration}")
+    def plot_cnv(self,new_file) -> None:
+        """Generate CNV plot"""
+        print(f"FLAG: Creating CNV plot for iteration {self.iteration}")
+        ## R cannot handle Path type, so convert to string
+        str_output = str(self.output)
+        str_bam = new_file.absolute().as_posix()
+        output_file = f"{str_output}/iteration_{self.iteration}/CNV_plot_iteration_{self.iteration}"
+        plot_CNV_bam(str_bam,output_file)
 
 
 # ==========================
@@ -159,7 +149,7 @@ class NewBamFileHandler(FileSystemEventHandler):
     "-f",
     "--freq",
     type=int,
-    default=5,
+    default=1,
     help="Number of iterations before merging BAMs and plotting CNV.",
 )
 @click.option(

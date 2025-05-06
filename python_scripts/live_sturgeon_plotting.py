@@ -9,10 +9,15 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
+import rpy2.robjects as robjects
+from rpy2.robjects import conversion, default_converter
 
 
-full_data = pd.DataFrame()
-output_folder = Path("/Users/k.v.cammel/Documents/Projects/P2_wrapper/sturgeon_results")
+
+R_script = "/Users/k.v.cammel/Developer/cold_setup_sturgeon/utils/CNV_plot.R"
+robjects.r(f'source("{R_script}")')
+r_plot_cnv = robjects.globalenv['plot_cnv_from_bam_DNAcopy']
+
 
 def write_progress_tsv(full_data,output_folder,iteration,modelname):
     current_csv = Path(f"{output_folder}/iteration_{iteration}/merged_probes_methyl_calls_{modelname}_iteration_{iteration}.csv")
@@ -91,11 +96,7 @@ def plot_confidence_over_time(full_data,output_file,color_translation):
     plt.savefig(f"{output_file}.pdf")
     plt.close()
 
-if __name__ == "__main__":
-    iteration = 1
-    modelname = "general"
-    output_file = f"confidence_over_time_plot_iteration_{iteration}"
-    df = pd.read_csv("color_translation.csv")
-    color_translation = dict(zip(df["class"], df["color"]))
-    full_data = write_progress_tsv(full_data,output_folder,iteration,modelname)
-    plot_confidence_over_time(full_data,output_file,color_translation)
+def plot_CNV_bam(input_bam, output_file):
+    with conversion.localconverter(default_converter):
+        r_plot_cnv(input_bam,output_file)
+
