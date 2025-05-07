@@ -9,14 +9,10 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
+from rpy2.robjects import r, globalenv
+from rpy2.robjects.conversion import localconverter
+from rpy2.robjects import default_converter
 import rpy2.robjects as robjects
-from rpy2.robjects import conversion, default_converter
-
-
-
-R_script = "/Users/k.v.cammel/Developer/cold_setup_sturgeon/utils/CNV_plot.R"
-robjects.r(f'source("{R_script}")')
-r_plot_cnv = robjects.globalenv['plot_cnv_from_bam_DNAcopy']
 
 
 def write_progress_tsv(full_data,output_folder,iteration,modelname):
@@ -96,7 +92,10 @@ def plot_confidence_over_time(full_data,output_file,color_translation):
     plt.savefig(f"{output_file}.pdf")
     plt.close()
 
-def plot_CNV_bam(input_bam, output_file):
-    with conversion.localconverter(default_converter):
-        r_plot_cnv(input_bam,output_file)
+def plot_CNV_bam(input_bam, output_file, r_script):
+    with localconverter(default_converter) as cv:
+        r(f'source("{r_script}")')
+        r_plot_cnv = globalenv['plot_cnv_from_bam_DNAcopy']
+        r_plot_cnv(input_bam, output_file)
+
 

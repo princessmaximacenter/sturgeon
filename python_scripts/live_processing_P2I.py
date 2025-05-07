@@ -4,7 +4,7 @@ import signal
 import subprocess
 import click
 import pandas as pd
-
+import yaml
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from pathlib import Path
@@ -21,7 +21,7 @@ DEFAULT_OUT_DIR: Path = Path("./sturgeon_results")
 DEFAULT_SUFFIXES: str = ".bam"
 DEFAULT_LOCK_FILE: Path = Path("script.lock")
 DEFAULT_MODEL_FILE: Path = Path("/Users/k.v.cammel/Developer/cold_setup_sturgeon/sturgeon/include/models/general.zip")
-
+DEFAULT_CONFIG_FILE: Path = Path("/Users/k.v.cammel/Developer/cold_setup_sturgeon/python_scripts/config.yaml")
 
 # ==========================
 # Lock File Utilities
@@ -52,13 +52,26 @@ signal.signal(signal.SIGINT, handle_exit)
 # File Event Handler
 # ==========================
 class NewBamFileHandler(FileSystemEventHandler):
-    def __init__(self, script_path: Path, results: Path, freq: int, model: Path) -> None:
+    def __init__(self, script_path: Path, results: Path, freq: int, model: Path, config_yaml: Path) -> None:
         self.iteration = 1
         self.script_path = script_path
         self.output = results
         self.freq = freq
         self.model = model
         self.full_data = pd.DataFrame()
+
+        self.config = self.load_config(config_yaml)
+        self.r_script_path = self.config['paths'].get('r_script_main')
+
+
+    def load_config(self, config_yaml):
+        """Load configuration from YAML"""
+        try:
+            with open(config_yaml,'r') as config_file:
+                return yaml.safe_load(config_file)
+        except Exception as e:
+            print(f"Error loading config: {e}, exiting...")
+            sys.exit("Exiting...")
 
     def on_created(self, event: FileSystemEvent) -> None:
         """React to newly created files that match allowed suffixes."""
@@ -103,7 +116,7 @@ class NewBamFileHandler(FileSystemEventHandler):
         str_output = str(self.output)
         str_bam = new_file.absolute().as_posix()
         output_file = f"{str_output}/iteration_{self.iteration}/CNV_plot_iteration_{self.iteration}"
-        plot_CNV_bam(str_bam,output_file)
+        plot_CNV_bam(str_bam,output_file,self.r_script_path)
 
 
 # ==========================
@@ -159,7 +172,14 @@ class NewBamFileHandler(FileSystemEventHandler):
     default=DEFAULT_MODEL_FILE,
     help="Location of model used for sturgeon prediction"
 )
-def main(input: Path, output: Path, lock: Path, script: Path, barcode: int, freq: int, model: Path):
+@click.option(
+    "-c",
+    "--config_yaml",
+    type=click.Path(path_type=Path, exists=True, file_okay=True),
+    default=DEFAULT_CONFIG_FILE,
+    help="Path to config.yaml"
+)
+def main(input: Path, output: Path, lock: Path, script: Path, barcode: int, freq: int, model: Path, config_yaml: Path):
     """
     Monitors a folder for new BAM or TXT files and processes them as they appear.
     """
@@ -167,7 +187,7 @@ def main(input: Path, output: Path, lock: Path, script: Path, barcode: int, freq
     while running:
         try:
             print(f"Starting to monitor for new BAM files in: {input}")
-            event_handler = NewBamFileHandler(script_path=script, results=output, freq=freq, model=model)
+            event_handler = NewBamFileHandler(script_path=script, results=output, freq=freq, model=model, config_yaml=config_yaml)
             observer = Observer()
             observer.schedule(event_handler, path=input, recursive=False)
             observer.start()

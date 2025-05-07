@@ -1,0 +1,4 @@
+# Sturgeon project configuration
+paths:
+  r_scripts: "/Users/k.v.cammel/Developer/cold_setup_sturgeon/utils/"  # Eventually change path when installed on P2
+  r_script_main: "/Users/k.v.cammel/Developer/cold_setup_sturgeon/utils/CNV_plot.R"  # Eventually change path when installed on P2
