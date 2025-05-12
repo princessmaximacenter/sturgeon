@@ -2,7 +2,7 @@
 suppressMessages(library(DNAcopy))
 if (!requireNamespace("BiocManager", quietly = TRUE))
     install.packages("BiocManager")
-suppressMessages(BiocManager::install("QDNAseq"))
+suppressMessages(BiocManager::install("QDNAseq",update = FALSE))
 
 plot_cnv_from_bam_DNAcopy <- function(bam, output_file = NULL, makeplot = TRUE,
                                       lines_only = FALSE,
@@ -35,9 +35,9 @@ plot_cnv_from_bam_DNAcopy <- function(bam, output_file = NULL, makeplot = TRUE,
   sample$refcov <- reference$coverage
   sample <- sample[sample$chrom != "Y" & sample$chrom != "X", ]
   sample$reltoref <- sample$coverage / sample$refcov
-  blacklistbins <- sample[sample$refcov < 500, ]
-  blacklistbins <- row.names(blacklistbins)
-  sample <- sample[!row.names(sample) %in% blacklistbins, ]
+  exclusionListBins <- sample[sample$refcov < 500, ]
+  exclusionListBins <- row.names(exclusionListBins)
+  sample <- sample[!row.names(sample) %in% exclusionListBins, ]
   mn <- mean(sample$reltoref)
 
   sample$logtr <- log(sample$reltoref / mn, 2)
