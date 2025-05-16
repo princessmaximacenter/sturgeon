@@ -107,7 +107,8 @@ confidence_over_time_plot=function(merged_data, output_file, color_translation= 
   plot('', xlim=c(0,ifelse(ncol(mgd)>5, ncol(mgd)+5, 10)), ylim=c(0,1), main="confidence over time", xlab="iteration", ylab="confidence",
        xaxt="n")
   for(i in 1:(nrow(mgd)-1)){
-    clr = unlist(unname(color_translation[mgd[i,"class"]]))
+    tumor_class <- gsub("/", " ", mgd[i,"class"])
+    clr = unlist(unname(color_translation[tumor_class]))
     lines(x = 0:(ncol(mgd)-2), y= as.numeric(mgd[i,2:ncol(mgd)]), col=clr)
     if(as.numeric(mgd[i,ncol(mgd)])>0.5){text(x=ncol(mgd), y=as.numeric(mgd[i,ncol(mgd)])-0.02, labels = mgd[i,"class"])}
   }
