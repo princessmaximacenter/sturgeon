@@ -1,4 +1,10 @@
 #!/bin/bash
+<<com
+This script runs the sturgeon classifier on the bam files output from the P2 basecalling and alignment.
+First modkit is used to extract the methylation signal from the bam file
+Secondly, sturgeon inputtobed is run to create the input file for the sturgeon predictor
+Lastly, sturgeon predict is run for prediction
+com
 INPUT_BAM="$1"
 OUTPUT_DIR="$2"
 MODEL_FILE="$3"

@@ -1,8 +1,10 @@
 
 suppressMessages(library(DNAcopy))
-if (!requireNamespace("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
-suppressMessages(BiocManager::install("QDNAseq",update = FALSE))
+suppressMessages(library(QDNAseq)
+
+#if (!requireNamespace("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+#suppressMessages(BiocManager::install("QDNAseq",update = FALSE))
 
 plot_cnv_from_bam_DNAcopy <- function(bam, output_file = NULL, makeplot = TRUE,
                                       lines_only = FALSE,
