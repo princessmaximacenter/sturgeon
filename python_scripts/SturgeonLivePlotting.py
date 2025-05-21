@@ -12,7 +12,7 @@ from datetime import datetime
 from rpy2.robjects import r, globalenv
 from rpy2.robjects.conversion import localconverter
 from rpy2.robjects import default_converter
-import rpy2.robjects as robjects
+
 
 
 def write_progress_tsv(full_data,output_folder,iteration,modelname):
@@ -52,11 +52,15 @@ def plot_confidence_over_time(full_data,output_file,color_translation):
 
         y_values = row.values
         x_values = full_data.columns
-        color = color_translation.get(class_name,"gray")
+        if "/" in class_name:
+            classNameSubsitute = class_name.replace("/"," ")
+            color = color_translation.get(classNameSubsitute,"gray")
+        else:
+            color = color_translation.get(class_name,"gray")
 
 
 
-        plt.plot(x_values,y_values,label=class_name, color=color, marker="o",linestyle = "")
+        plt.plot(x_values,y_values,label=class_name, color=color, marker="o",linestyle = "-")
 
         #Label if final confidence > 0.5
         for i,value in enumerate(y_values):
