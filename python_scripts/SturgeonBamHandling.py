@@ -1,9 +1,11 @@
 import sys
 import subprocess
 import pandas as pd
-import logging
 from pathlib import Path
+import os
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
+from queue import Queue
+import threading
 
 import SturgeonLivePlotting as SLP
 import SturgeonLogging as SL
@@ -33,7 +35,7 @@ class LockManager:
 
 
 class NewBamFileHandler(FileSystemEventHandler):
-    def __init__(self, sturgeon_script_path: Path, output: Path, model: Path, freq: int, r_script_path: Path) -> None:
+    def __init__(self, sturgeon_script_path: Path, output: Path, model: Path, freq: int, r_script_path: Path, input: Path) -> None:
         self.iteration = 1
         self.script_path = sturgeon_script_path
         self.output = output
@@ -41,12 +43,42 @@ class NewBamFileHandler(FileSystemEventHandler):
         self.freq = freq
         self.full_data = pd.DataFrame()
         self.r_script_path = r_script_path
+        self.watch_directory = input
+
+        """Create queue and processing thread for bam files (in chronological order)"""
+        self.file_queue = Queue()
+        self.processing_thread = threading.Thread(target=self._process_queue,daemon=True)
+        self.processing_thread.start()
+
+        """Process existing files"""
+        self._process_existing_results()
+
+    def _process_existing_results(self):
+        """Check the results directory if there are already bam files present"""
+        log.info("Checking existing bam files")
+
+        bamFiles = []
+        for bamFile in self.watch_directory.rglob("*.bam"):
+            creationTime = os.path.getmtime(bamFile)
+
+            bamFiles.append((bamFile,creationTime))
+
+        bamFiles.sort(key=lambda x:x[1]) #sort by oldest bam file first
+
+        for bamFile, _ in bamFiles:
+            self.file_queue.put(bamFile)
+
+    def _process_queue(self):
+        while True:
+            filePath = self.file_queue.get()
+            self.run_script(filePath)
 
     def on_created(self, event: FileSystemEvent):
         """React to newly created files that match allowed suffixes."""
         if not event.is_directory and event.src_path.endswith(".bam"):
             log.info(f"Detected new file: {event.src_path}")
-            self.run_script(Path(event.src_path))
+            self.file_queue.put(Path(event.src_path))
+
 
     def run_script(self, new_file: Path) -> None:
         """Run sturgeon and plotting on new file"""

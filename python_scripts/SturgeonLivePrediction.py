@@ -37,6 +37,15 @@ def register_signal_handlers():
     signal.signal(signal.SIGINT, handle_exit)
     signal.signal(signal.SIGTERM, handle_exit)
 
+def wait_for_input_directory(input: Path) -> None:
+    """Wait for the results directory to be created"""
+    while not input.exists():
+        log.info(f"Waiting for results directory {input} to be created.")
+        time.sleep(5)
+        if shutdown_event.is_set():
+            return
+    log.info(f"Results directory {input} found, proceeding with sturgeon analysis.")
+
 # Custom decorator for click command
 def click_command(func):
     @click.command()
@@ -99,8 +108,13 @@ def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: 
     lock_manager.check_lock()
 
     try:
+        if not input.exists():
+            wait_for_input_directory(input)
+        if shutdown_event.is_set():
+            log.info("Sturgeon terminated during wait for results")
+            return
         log.info(f"Starting to monitor for new BAM files in: {input}")
-        event_handler = SBH.NewBamFileHandler(sturgeon_script, output, model, freq, r_script)
+        event_handler = SBH.NewBamFileHandler(sturgeon_script, output, model, freq, r_script, input)
         observer = Observer()
         observer.schedule(event_handler, path=input, recursive=False)
         observer.start()
