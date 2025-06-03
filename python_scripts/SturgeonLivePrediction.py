@@ -50,7 +50,7 @@ def wait_for_input_directory(input: Path) -> None:
 def click_command(func):
     @click.command()
     @click.option(
-        "-i", "--input", type=click.Path(path_type=Path, exists=False, dir_okay=True), default=None, help="Directory to watch for new sequencing result files."
+        "-i", "--input", type=click.Path(path_type=Path, exists=False, dir_okay=True), default=None, help="Directory of sequencing run for sturgeon analysis"
     )
     @click.option(
         "-o", "--output", type=click.Path(path_type=Path, exists=False, writable=True), default=None, help="Directory where results are written."
@@ -86,7 +86,7 @@ def click_command(func):
         kwargs['sturgeon_script'] = kwargs.get('sturgeon_script') or Path(config['paths']['sturgeon_script'])
         kwargs['model'] = kwargs.get('model') or Path(config['paths']['model'])
         kwargs['r_script'] = kwargs.get('r_script') or Path(config['paths']['r_script'])
-        kwargs['barcode'] = kwargs.get('barcode', config.get('barcode'))
+        kwargs['barcode'] = kwargs['barcode'] or config.get('barcode')
         kwargs["freq"] = kwargs["freq"] or config.get("freq")
         kwargs["shutdown_file"] = kwargs["shutdown_file"] or Path(config['paths']['shutdown_file'])
 
@@ -98,9 +98,10 @@ def click_command(func):
 @click_command
 def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: int, freq: int, model: Path, r_script: Path, shutdown_file:Path):
     """
-    Monitors a folder for new BAM or TXT files and processes them as they appear.
+    Monitors a folder for new BAM files and processes them as they appear.
     """
 
+    results_directory = Path(f"{input}/bam_pass/barcode{barcode}/")
 
     register_signal_handlers()
 
@@ -108,15 +109,16 @@ def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: 
     lock_manager.check_lock()
 
     try:
-        if not input.exists():
-            wait_for_input_directory(input)
+
+        if not results_directory.exists():
+            wait_for_input_directory(results_directory)
         if shutdown_event.is_set():
             log.info("Sturgeon terminated during wait for results")
             return
-        log.info(f"Starting to monitor for new BAM files in: {input}")
-        event_handler = SBH.NewBamFileHandler(sturgeon_script, output, model, freq, r_script, input)
+        log.info(f"Starting to monitor for new BAM files in: {results_directory}")
+        event_handler = SBH.NewBamFileHandler(sturgeon_script, output, model, freq, r_script, results_directory)
         observer = Observer()
-        observer.schedule(event_handler, path=input, recursive=False)
+        observer.schedule(event_handler, path=results_directory, recursive=False)
         observer.start()
 
         while not shutdown_event.is_set():

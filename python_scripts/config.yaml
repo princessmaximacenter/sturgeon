@@ -1,7 +1,7 @@
 # Sturgeon project configuration
 paths:
   r_script: "/Users/k.v.cammel/Developer/cold_setup_sturgeon/utils/CNV_plot.R"  # Eventually change path when installed on P2
-  bam_input: "./bam_pass"
+  bam_input: "./20250417_1421_P2I-00332-A_PBC28823_8dc9d25f"
   sturgeon_script: "/Users/k.v.cammel/Developer/cold_setup_sturgeon/sturgeon_P2.sh"
   results_dir: "./sturgeon_results"
   script_lock: "/Users/k.v.cammel/Documents/Projects/P2_wrapper/sturgeon/script.lock"
