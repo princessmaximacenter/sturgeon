@@ -93,6 +93,7 @@ class NewBamFileHandler(FileSystemEventHandler):
             self.plot_process()
             log.info(f"FLAG: iteration_{self.iteration} completed!")
             self.iteration += 1
+            log.info(f"FLAG: Waiting for new bam file")
         except subprocess.CalledProcessError as e:
             log.error(f"Script failed with error: {e}")
 

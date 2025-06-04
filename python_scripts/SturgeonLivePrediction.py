@@ -2,6 +2,8 @@ import time
 import logging
 import threading
 import sys
+from tokenize import String
+
 import click
 import signal
 from pathlib import Path
@@ -37,6 +39,13 @@ def register_signal_handlers():
     signal.signal(signal.SIGINT, handle_exit)
     signal.signal(signal.SIGTERM, handle_exit)
 
+
+def normalize_barcode(ctx, param, value) -> String:
+    """If users inputs 1 character string for barcode, add 0 as prefix"""
+    if value and len(value) == 1:
+        return f"0{value}"
+    return value
+
 def wait_for_input_directory(input: Path) -> None:
     """Wait for the results directory to be created"""
     while not input.exists():
@@ -62,7 +71,7 @@ def click_command(func):
         "-s", "--sturgeon_script", type=click.Path(path_type=Path, exists=True, file_okay=True), default=None, help="Path to the script that will be called for processing."
     )
     @click.option(
-        "-b", "--barcode", type=int, default=None, help="Barcode used in library preparation."
+        "-b", "--barcode", type=str, default=None, callback=normalize_barcode,help="Barcode used in library preparation."
     )
     @click.option(
         "-f", "--freq", type=int, default=None, help="Number of iterations before merging BAMs and plotting CNV."
