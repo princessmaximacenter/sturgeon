@@ -20,7 +20,7 @@ modkit adjust-mods --convert h m "${INPUT_BAM}" "${OUTPUT_DIR}/modkit/${SAMPLE_N
 echo "modkit extract full ${OUTPUT_DIR}/modkit/${SAMPLE_NAME}_modkit.bam ${OUTPUT_DIR}/modkit/${SAMPLE_NAME}_modkit.txt"
 modkit extract full "${OUTPUT_DIR}/modkit/${SAMPLE_NAME}_modkit.bam" "${OUTPUT_DIR}/modkit/${SAMPLE_NAME}_modkit_${ITERATION}.txt"
 
-echo "FLAG: starting sturgeon for iteration_$(ITERATION)"
+echo "FLAG: starting sturgeon for iteration_${ITERATION}"
 echo "sturgeon inputtobed --margin 50 -i ${OUTPUT_DIR}/modkit/ -o ${OUTPUT_DIR}/modkit -s modkit"
 sturgeon inputtobed --margin 50 -i "${OUTPUT_DIR}/modkit/" -o "${OUTPUT_DIR}/modkit" -s modkit
 echo "sturgeon predict -p --i ${OUTPUT_DIR}/modkit/ -o ${OUTPUT_DIR} -m ${MODEL_FILE}"

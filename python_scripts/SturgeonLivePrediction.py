@@ -46,6 +46,25 @@ def normalize_barcode(ctx, param, value) -> String:
         return f"0{value}"
     return value
 
+def set_results_directory(input: Path, barcode: str, gridion: bool) -> Path:
+    """Define the exact directory where the bam files will be found, as fool-proof as possible"""
+    if gridion:
+        return input
+    else:
+        base_input = input.resolve()
+        # Option 1: ends with bam_pass/barcode → use as-is
+        if base_input.parts[-2:] == ("bam_pass", barcode):
+            return base_input
+
+        # Option 2: ends with bam_pass → add barcode
+        elif base_input.name == "bam_pass":
+            return Path(f"{base_input}/barcode{barcode}")
+
+        # Option 3: assume it's the sequencing dir → add bam_pass/barcode
+        else:
+            return Path(f"{base_input}/bam_pass/barcode{barcode}")
+
+
 def wait_for_input_directory(input: Path) -> None:
     """Wait for the results directory to be created"""
     while not input.exists():
@@ -81,7 +100,9 @@ def click_command(func):
     )
     @click.option(
         "-r", "--r_script", type=click.Path(path_type=Path, exists=True), default=None,help="Location of R script for plotting CNV"
-
+    )
+    @click.option(
+        "-g", "--gridion", type=bool, default = False, help = "If run is a gridion verification run, some parameters are changed"
     )
     @click.option(
         "-sf", "--shutdown_file", type=click.Path(path_type=Path, exists=False), default=None,help="Location of shutdown flag"
@@ -97,6 +118,7 @@ def click_command(func):
         kwargs['r_script'] = kwargs.get('r_script') or Path(config['paths']['r_script'])
         kwargs['barcode'] = kwargs['barcode'] or config.get('barcode')
         kwargs["freq"] = kwargs["freq"] or config.get("freq")
+        kwargs["gridion"] = kwargs["gridion"] or config.get("gridion")
         kwargs["shutdown_file"] = kwargs["shutdown_file"] or Path(config['paths']['shutdown_file'])
 
         return func(*args, **kwargs)
@@ -105,13 +127,11 @@ def click_command(func):
 
 
 @click_command
-def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: int, freq: int, model: Path, r_script: Path, shutdown_file:Path):
+def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: str, freq: int, model: Path, r_script: Path, gridion: bool, shutdown_file:Path):
     """
     Monitors a folder for new BAM files and processes them as they appear.
     """
-
-    results_directory = Path(f"{input}/bam_pass/barcode{barcode}/")
-
+    results_directory = set_results_directory(input, barcode, gridion)
     register_signal_handlers()
 
     lock_manager = SBH.LockManager(lock)
@@ -125,7 +145,7 @@ def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: 
             log.info("Sturgeon terminated during wait for results")
             return
         log.info(f"Starting to monitor for new BAM files in: {results_directory}")
-        event_handler = SBH.NewBamFileHandler(sturgeon_script, output, model, freq, r_script, results_directory)
+        event_handler = SBH.NewBamFileHandler(sturgeon_script, output, model, freq, r_script, results_directory, gridion)
         observer = Observer()
         observer.schedule(event_handler, path=results_directory, recursive=False)
         observer.start()
@@ -145,5 +165,7 @@ def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: 
         if shutdown_file.exists():
             shutdown_file.unlink()
             log.info("Removed shutdown flag")
+        else:
+            log.info("No shutdown flag found to remove")
 if __name__ == "__main__":
     main()

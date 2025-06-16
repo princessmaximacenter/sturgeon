@@ -6,6 +6,8 @@ import os
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from queue import Queue
 import threading
+import re
+import pysam
 
 import SturgeonLivePlotting as SLP
 import SturgeonLogging as SL
@@ -35,7 +37,7 @@ class LockManager:
 
 
 class NewBamFileHandler(FileSystemEventHandler):
-    def __init__(self, sturgeon_script_path: Path, output: Path, model: Path, freq: int, r_script_path: Path, input: Path) -> None:
+    def __init__(self, sturgeon_script_path: Path, output: Path, model: Path, freq: int, r_script_path: Path, input: Path, gridion: bool) -> None:
         self.iteration = 1
         self.script_path = sturgeon_script_path
         self.output = output
@@ -44,6 +46,7 @@ class NewBamFileHandler(FileSystemEventHandler):
         self.full_data = pd.DataFrame()
         self.r_script_path = r_script_path
         self.watch_directory = input
+        self.gridion = gridion
 
         """Create queue and processing thread for bam files (in chronological order)"""
         self.file_queue = Queue()
@@ -51,14 +54,17 @@ class NewBamFileHandler(FileSystemEventHandler):
         self.processing_thread.start()
 
         """Process existing files"""
-        self._process_existing_results()
+        if gridion:
+            self._process_gridion_run()
+        else:
+            self._process_existing_results()
 
     def _process_existing_results(self):
         """Check the results directory if there are already bam files present"""
         log.info("Checking existing bam files")
 
         bamFiles = []
-        for bamFile in self.watch_directory.rglob("*.bam"):
+        for bamFile in self.watch_directory.glob("*.bam"):
             creationTime = os.path.getmtime(bamFile)
 
             bamFiles.append((bamFile,creationTime))
@@ -67,6 +73,37 @@ class NewBamFileHandler(FileSystemEventHandler):
 
         for bamFile, _ in bamFiles:
             self.file_queue.put(bamFile)
+
+
+    def _process_gridion_run(self):
+        log.info("Processing files from gridion run")
+
+        bamFiles = list(self.watch_directory.glob("guppy_output_it*[0-9]*.bam"))
+        mainBamFiles = []
+        for bam in bamFiles:
+            if "unclassified" in bam.name:
+                continue
+            iteration = re.search(r"it(?:_iteration)?_(\d+)|it(\d+)", bam.name)
+            if iteration:
+                it_str = iteration.group(1) or iteration.group(2)
+                it_num = int(it_str)
+                mainBamFiles.append((bam, it_num))
+
+        mergedBams = []
+        for mainBam, it_num in sorted(mainBamFiles,key=lambda x: x[1]):
+            if "_iteration_" in mainBam.name:
+                unclassified_bam = self.watch_directory / f"guppy_output_it_iteration_{it_num}_unclassified.bam"
+            else:
+                unclassified_bam = self.watch_directory / f"guppy_output_it{it_num}_unclassified.bam"
+
+            mergedBam = [str(mainBam),str(unclassified_bam)]
+            self.output.mkdir(exist_ok=True)x
+            mergedPath = f"{self.output}/merged_it{it_num}.bam"
+            pysam.merge("-O", "BAM", "-o", mergedPath, *mergedBam)
+            mergedBams.append((mergedPath,it_num))
+
+        for mergedPath, _ in sorted(mergedBams,key=lambda x: x[1]):
+            self.file_queue.put(mergedPath)
 
     def _process_queue(self):
         while True:
@@ -119,7 +156,10 @@ class NewBamFileHandler(FileSystemEventHandler):
         """Generate CNV plot"""
         log.info(f"FLAG: Creating CNV plot for iteration_{self.iteration}")
         str_output = str(self.output)
-        str_bam = new_file.absolute().as_posix()
+        if type(new_file) != str:
+            str_bam = new_file.absolute().as_posix()
+        else:
+            str_bam = new_file
         output_file = f"{str_output}/iteration_{self.iteration}/CNV_plot_iteration_{self.iteration}"
         SLP.plot_CNV_bam(str_bam, output_file, self.r_script_path)
 
