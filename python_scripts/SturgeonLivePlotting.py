@@ -1,4 +1,3 @@
-from unittest.mock import inplace
 import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend (for saving to file)
 
@@ -63,10 +62,9 @@ def plot_confidence_over_time(full_data,output_file,color_translation):
         plt.plot(x_values,y_values,label=class_name, color=color, marker="o",linestyle = "-")
 
         #Label if final confidence > 0.5
-        for i,value in enumerate(y_values):
-            confidence = float(value)
-            if confidence > 0.5:
-                plt.text(i, confidence+0.05, class_name, fontsize=9)
+        last_confidence = float(y_values[-1])
+        if last_confidence > 0.5:
+            plt.text(len(y_values) - 1, last_confidence+0.05, class_name, fontsize=9)
 
     #Add threshold lines
     plt.axhline(0.95,color='red',linestyle='--', label="0.95 threshold")
