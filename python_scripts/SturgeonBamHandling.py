@@ -8,6 +8,7 @@ from queue import Queue
 import threading
 import re
 import pysam
+import glob
 
 import SturgeonLivePlotting as SLP
 import SturgeonLogging as SL
@@ -53,7 +54,7 @@ class NewBamFileHandler(FileSystemEventHandler):
         self.processing_thread = threading.Thread(target=self._process_queue,daemon=True)
         self.processing_thread.start()
 
-        """Process existing files"""
+        """Process gridion run or already present bam files in P2 run"""
         if gridion:
             self._process_gridion_run()
         else:
@@ -89,21 +90,27 @@ class NewBamFileHandler(FileSystemEventHandler):
                 it_num = int(it_str)
                 mainBamFiles.append((bam, it_num))
 
-        mergedBams = []
-        for mainBam, it_num in sorted(mainBamFiles,key=lambda x: x[1]):
-            if "_iteration_" in mainBam.name:
-                unclassified_bam = self.watch_directory / f"guppy_output_it_iteration_{it_num}_unclassified.bam"
-            else:
-                unclassified_bam = self.watch_directory / f"guppy_output_it{it_num}_unclassified.bam"
+        #Check if unclassified barcodes were used in gridion analysis
+        if any("unclassified" in bam.name for bam in bamFiles):
+            mergedBams = []
+            for mainBam, it_num in sorted(mainBamFiles,key=lambda x: x[1]):
+                if "_iteration_" in mainBam.name:
+                    unclassified_bam = self.watch_directory / f"guppy_output_it_iteration_{it_num}_unclassified.bam"
+                else:
+                    unclassified_bam = self.watch_directory / f"guppy_output_it{it_num}_unclassified.bam"
 
-            mergedBam = [str(mainBam),str(unclassified_bam)]
-            self.output.mkdir(exist_ok=True)x
-            mergedPath = f"{self.output}/merged_it{it_num}.bam"
-            pysam.merge("-O", "BAM", "-o", mergedPath, *mergedBam)
-            mergedBams.append((mergedPath,it_num))
 
-        for mergedPath, _ in sorted(mergedBams,key=lambda x: x[1]):
-            self.file_queue.put(mergedPath)
+                mergedBam = [str(mainBam),str(unclassified_bam)]
+                Path(f"{self.output}/merged_bams").mkdir(exist_ok=True)
+                mergedPath = f"{self.output}/merged_bams/merged_it{it_num}.bam"
+                pysam.merge("-O", "BAM", "-o", mergedPath, *mergedBam)
+                mergedBams.append((mergedPath,it_num))
+
+            for mergedPath, _ in sorted(mergedBams,key=lambda x: x[1]):
+                self.file_queue.put(mergedPath)
+        else:
+            for bamPath, _ in sorted(mainBamFiles, key=lambda x: x[1]):
+                self.file_queue.put(bamPath)
 
     def _process_queue(self):
         while True:
@@ -126,6 +133,7 @@ class NewBamFileHandler(FileSystemEventHandler):
                 check=True
             )
             if self.iteration % self.freq == 0:
+                Path(f"{self.output}/merged_bams").mkdir(exist_ok=True)
                 self.plot_cnv(new_file)
             self.plot_process()
             log.info(f"FLAG: iteration_{self.iteration} completed!")
@@ -155,13 +163,11 @@ class NewBamFileHandler(FileSystemEventHandler):
     def plot_cnv(self, new_file) -> None:
         """Generate CNV plot"""
         log.info(f"FLAG: Creating CNV plot for iteration_{self.iteration}")
-        str_output = str(self.output)
-        if type(new_file) != str:
-            str_bam = new_file.absolute().as_posix()
-        else:
-            str_bam = new_file
-        output_file = f"{str_output}/iteration_{self.iteration}/CNV_plot_iteration_{self.iteration}"
-        SLP.plot_CNV_bam(str_bam, output_file, self.r_script_path)
+        bamToCNV = f"{self.output}/merged_bams/merged_CNV_bam.bam"
+        modkitBamsToMerge = glob.glob(f"{self.output}/modkit/*_modkit.bam")
+        pysam.merge("-@","10","-f","-O","BAM","-o", bamToCNV, *modkitBamsToMerge) #Merge all bams after modkit, before creating CNV plot
+        output_file = f"{self.output}/iteration_{self.iteration}/CNV_plot_iteration_{self.iteration}"
+        SLP.plot_CNV_bam(bamToCNV, output_file, self.r_script_path)
 
 
 
