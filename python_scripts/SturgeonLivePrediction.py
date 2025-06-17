@@ -51,6 +51,10 @@ def set_results_directory(input: Path, barcode: str, gridion: bool) -> Path:
     if gridion:
         return input
     else:
+        if barcode != "unclassified":
+            barcode = f"barcode{barcode}"
+        else:
+            pass
         base_input = input.resolve()
         # Option 1: ends with bam_pass/barcode → use as-is
         if base_input.parts[-2:] == ("bam_pass", barcode):
@@ -58,18 +62,18 @@ def set_results_directory(input: Path, barcode: str, gridion: bool) -> Path:
 
         # Option 2: ends with bam_pass → add barcode
         elif base_input.name == "bam_pass":
-            return Path(f"{base_input}/barcode{barcode}")
+            return Path(f"{base_input}/{barcode}")
 
         # Option 3: assume it's the sequencing dir → add bam_pass/barcode
         else:
-            return Path(f"{base_input}/bam_pass/barcode{barcode}")
+            return Path(f"{base_input}/bam_pass/{barcode}")
 
 
 def wait_for_input_directory(input: Path) -> None:
     """Wait for the results directory to be created"""
     while not input.exists():
         log.info(f"Waiting for results directory {input} to be created.")
-        time.sleep(5)
+        time.sleep(20)
         if shutdown_event.is_set():
             return
     log.info(f"Results directory {input} found, proceeding with sturgeon analysis.")
