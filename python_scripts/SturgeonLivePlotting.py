@@ -77,13 +77,15 @@ def plot_confidence_over_time(full_data,output_file,color_translation):
 
     num_iterations = full_data.shape[1]
     x_upper = num_iterations + 5 if num_iterations > 5 else 10
+    """Only show time labels every 4 iterations, for readability"""
     tick_labels = time_row.iloc[0,1:].tolist()
-    iteration_labels = [str(i + 1) for i in range(x_upper)]
-
-
     padded_time_labels = tick_labels + [""] * (x_upper - len(tick_labels))
-    combined_labels = [f"{iter_label}\n{time}" for iter_label, time in zip(iteration_labels, padded_time_labels)]
-    plt.xticks(ticks=range(x_upper), labels=combined_labels, rotation=0)
+    tick_indices = list(range(x_upper))
+    iteration_labels = [str(i + 1) for i in tick_indices]
+    sparse_time_labels = [padded_time_labels[i] if (i + 1) % 4 == 0 else "" for i in tick_indices]
+    combined_labels = [f"{iter_label}\n{time}" for iter_label, time in zip(iteration_labels, sparse_time_labels)]
+
+    plt.xticks(ticks=tick_indices, labels=combined_labels, rotation=0)
     plt.xlim(-0.8,x_upper-0.5)
     plt.yticks(np.arange(0, 1.1, step=0.2))
     plt.ylim(-0.1,1.1)
