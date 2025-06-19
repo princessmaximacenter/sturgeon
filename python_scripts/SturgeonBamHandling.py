@@ -109,7 +109,10 @@ class NewBamFileHandler(FileSystemEventHandler):
             for mergedPath, _ in sorted(mergedBams,key=lambda x: x[1]):
                 self.file_queue.put(mergedPath)
         else:
-            for bamPath, _ in sorted(mainBamFiles, key=lambda x: x[1]):
+            for bamPath, it_num in sorted(mainBamFiles, key=lambda x: x[1]):
+                symlink_target = Path(f"{self.output}/merged_bams/merged_it{it_num}.bam")
+                symlink_target.parent.mkdir(parents=True, exist_ok=True)
+                symlink_target.symlink_to(Path(bamPath))
                 self.file_queue.put(bamPath)
 
     def _process_queue(self):
@@ -132,6 +135,13 @@ class NewBamFileHandler(FileSystemEventHandler):
                 ["bash", str(self.script_path), str(new_file), str(self.output), str(self.model), str(self.iteration)],
                 check=True
             )
+            if self.gridion == False:
+                ##Create symlink for merging of bams for CNV file
+                symlink_target = Path(f"{self.output}/merged_bams/bam_for_CNV_it{self.iteration}.bam")
+                symlink_target.parent.mkdir(parents=True, exist_ok=True)
+                symlink_target.symlink_to(new_file)
+            else:
+                pass
             if self.iteration % self.freq == 0:
                 Path(f"{self.output}/merged_bams").mkdir(exist_ok=True)
                 self.plot_cnv(new_file)
@@ -164,8 +174,25 @@ class NewBamFileHandler(FileSystemEventHandler):
         """Generate CNV plot"""
         log.info(f"FLAG: Creating CNV plot for iteration_{self.iteration}")
         bamToCNV = f"{self.output}/merged_bams/merged_CNV_bam.bam"
-        modkitBamsToMerge = glob.glob(f"{self.output}/modkit/*_modkit.bam")
-        pysam.merge("-@","10","-f","-O","BAM","-o", bamToCNV, *modkitBamsToMerge) #Merge all bams after modkit, before creating CNV plot
+        bam_dir = Path(self.output) / "merged_bams"
+        if self.gridion == True:
+            modkitBamsToMerge = sorted(
+                [
+                    bam for bam in bam_dir.glob("merged_it*.bam")
+                    if (match := re.search(r'merged_it(\d+)\.bam$', bam.name)) and int(match.group(1)) <= self.iteration
+                ],
+                key=lambda bam: int(re.search(r'merged_it(\d+)\.bam$', bam.name).group(1))
+            )
+        else:
+            modkitBamsToMerge = sorted(
+                [
+                    bam for bam in bam_dir.glob("bam_for_CNV_it*.bam")
+                    if (match := re.search(r'bam_for_CNV_it(\d+)\.bam$', bam.name)) and int(match.group(1)) <= self.iteration
+                ],
+                key=lambda bam: int(re.search(r'bam_for_CNV_it(\d+)\.bam$', bam.name).group(1))
+            )
+
+        pysam.merge("-@","10","-f","-O","BAM","-o", bamToCNV, *map(str, modkitBamsToMerge)) #Merge all bams after modkit, before creating CNV plot
         output_file = f"{self.output}/iteration_{self.iteration}/CNV_plot_iteration_{self.iteration}"
         SLP.plot_CNV_bam(bamToCNV, output_file, self.r_script_path)
 
