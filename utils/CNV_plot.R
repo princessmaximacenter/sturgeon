@@ -1,19 +1,14 @@
-
+suppressMessages(library(QDNAseq))
 suppressMessages(library(DNAcopy))
-suppressMessages(library(QDNAseq)
 
-#if (!requireNamespace("BiocManager", quietly = TRUE))
-#    install.packages("BiocManager")
-#suppressMessages(BiocManager::install("QDNAseq",update = FALSE))
-
-plot_cnv_from_bam_DNAcopy <- function(bam, output_file = NULL, makeplot = TRUE,
+plot_cnv_from_bam_DNAcopy <- function(bam, output_file = NULL, utils_path= NULL, makeplot = TRUE,
                                       lines_only = FALSE,
                                       binsize = 1e6){
   #' Plot CNV
   #'
   #' PLOT CNVs from the given bam file
   #' Change this to a config getter
-  SOURCE_DIR = "/Users/k.v.cammel/Developer/cold_setup_sturgeon/utils"
+  SOURCE_DIR = utils_path
   cnvplot_tmpfile <- paste0(SOURCE_DIR, "/bins_sample_counts_tmp.bed")
 
   # Collect binned read counts and store it in a bed file
@@ -62,7 +57,7 @@ plot_cnv_from_bam_DNAcopy <- function(bam, output_file = NULL, makeplot = TRUE,
   if(makeplot){
     pdf(file=paste0(output_file, ".pdf"))
     a <- dev.cur()
-    png(file=paste0(output_file, ".png"))
+    png(file=paste0(output_file, ".png"), width = 1200, height = 1200, res = 120 )
     dev.control('enable')
 
     plot("", xlim=c(0,length(bam_cna$cnvplot)), ylim=c(-3,3), main=paste0("CNVs nreads=",sum_reads_title), xaxt="n", xlab="genomic pos",

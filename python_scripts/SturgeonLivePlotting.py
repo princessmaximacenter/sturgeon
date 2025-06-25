@@ -106,7 +106,7 @@ def plot_confidence_over_time(full_data: pd.DataFrame,output_file: str,color_tra
     plt.savefig(f"{output_file}.pdf")
     plt.close()
 
-def plot_CNV_bam(input_bam: Path, output_file: Path, r_script: Path) -> None:
+def plot_CNV_bam(input_bam: Path, output_file: Path, r_script: Path, utils: Path) -> None:
     """
     Runs the R script to create the CNV plot
     :param input_bam: Merged bam file used for generating CNV data
@@ -117,6 +117,6 @@ def plot_CNV_bam(input_bam: Path, output_file: Path, r_script: Path) -> None:
     with localconverter(default_converter) as cv:
         r(f'source("{r_script}")')
         r_plot_cnv = globalenv['plot_cnv_from_bam_DNAcopy']
-        r_plot_cnv(input_bam, output_file)
+        r_plot_cnv(input_bam, output_file, utils)
 
 

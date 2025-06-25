@@ -222,7 +222,7 @@ class NewBamFileHandler(FileSystemEventHandler):
 
         pysam.merge("-@","10","-f","-O","BAM","-o", bamToCNV, *map(str, modkitBamsToMerge)) #Merge all bams after modkit, before creating CNV plot
         output_file = f"{self.output}/iteration_{self.iteration}/CNV_plot_iteration_{self.iteration}"
-        SLP.plot_CNV_bam(bamToCNV, output_file, self.r_script_path)
+        SLP.plot_CNV_bam(bamToCNV, output_file, self.r_script_path,self.utils)
 
 
 
