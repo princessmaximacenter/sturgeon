@@ -8,7 +8,7 @@ from queue import Queue
 import threading
 import re
 import pysam
-import glob
+
 
 import SturgeonLivePlotting as SLP
 import SturgeonLogging as SL
@@ -21,8 +21,11 @@ class LockManager:
     def __init__(self, lock_file: Path):
         self.lock_file = lock_file
 
-    def check_lock(self) -> None:
-        """Check and create a lock file to prevent multiple instances."""
+    def _check_lock(self) -> None:
+        """
+        Checks and creates lock file to prevent multiple instances
+        :return: None
+        """
         if self.lock_file.exists():
             log.error("A different instance of Sturgeon is already running. Exiting...")
             sys.exit(1)
@@ -30,21 +33,25 @@ class LockManager:
             lf.write("Lock file to prevent multiple instances of sturgeon.")
         log.info("Lock file created. Proceeding with live processing...")
 
-    def remove_lock(self) -> None:
-        """Remove the lock file on shutdown."""
+    def _remove_lock(self) -> None:
+        """
+        Removes the lock file on shutdown
+        :return: None
+        """
         if self.lock_file.exists():
             self.lock_file.unlink()
             log.info("Lock file removed.")
 
 
 class NewBamFileHandler(FileSystemEventHandler):
-    def __init__(self, sturgeon_script_path: Path, output: Path, model: Path, freq: int, r_script_path: Path, input: Path, gridion: bool) -> None:
+    def __init__(self, sturgeon_script_path: Path, output: Path, model: Path, freq: int, utils: Path, r_script_path: Path, input: Path, gridion: bool) -> None:
         self.iteration = 1
         self.script_path = sturgeon_script_path
         self.output = output
         self.model = model
         self.freq = freq
         self.full_data = pd.DataFrame()
+        self.utils = utils
         self.r_script_path = r_script_path
         self.watch_directory = input
         self.gridion = gridion
@@ -61,7 +68,10 @@ class NewBamFileHandler(FileSystemEventHandler):
             self._process_existing_results()
 
     def _process_existing_results(self):
-        """Check the results directory if there are already bam files present"""
+        """
+        Checks the output directory for bam files that were already present before Sturgeon was started.
+        :return: None
+        """
         log.info("Checking existing bam files")
 
         bamFiles = []
@@ -76,7 +86,11 @@ class NewBamFileHandler(FileSystemEventHandler):
             self.file_queue.put(bamFile)
 
 
-    def _process_gridion_run(self):
+    def _process_gridion_run(self) -> None:
+        """
+        Collect all the bam files from the gridion run and create symlinks for processing
+        :return: None
+        """
         log.info("Processing files from gridion run")
 
         bamFiles = list(self.watch_directory.glob("guppy_output_it*[0-9]*.bam"))
@@ -120,15 +134,23 @@ class NewBamFileHandler(FileSystemEventHandler):
             filePath = self.file_queue.get()
             self.run_script(filePath)
 
-    def on_created(self, event: FileSystemEvent):
-        """React to newly created files that match allowed suffixes."""
+    def _on_created(self, event: FileSystemEvent) -> None:
+        """
+        Process newly created/detected bam file and adds to queue
+        :param event: Newly detected bam file
+        :return: None
+        """
         if not event.is_directory and event.src_path.endswith(".bam"):
             log.info(f"Detected new file: {event.src_path}")
             self.file_queue.put(Path(event.src_path))
 
 
     def run_script(self, new_file: Path) -> None:
-        """Run sturgeon and plotting on new file"""
+        """
+        Function that runs the sturgeon bash script and all plotting functions (confidence + CNV) for file first in queue
+        :param new_file: bam file processed from the queue
+        :return: None
+        """
         try:
             log.info(f"FLAG: Starting processing of iteration_{self.iteration}")
             subprocess.run(
@@ -144,7 +166,7 @@ class NewBamFileHandler(FileSystemEventHandler):
                 pass
             if self.iteration % self.freq == 0:
                 Path(f"{self.output}/merged_bams").mkdir(exist_ok=True)
-                self.plot_cnv(new_file)
+                self.plot_cnv()
             self.plot_process()
             log.info(f"FLAG: iteration_{self.iteration} completed!")
             self.iteration += 1
@@ -153,7 +175,10 @@ class NewBamFileHandler(FileSystemEventHandler):
             log.error(f"Script failed with error: {e}")
 
     def plot_process(self) -> None:
-        """Generate confidence over time plot and tsv"""
+        """
+        Plots the confidence over time plot for the current iteration
+        :return: None
+        """
         log.info(f"FLAG: Creating confidence over time plot for iteration_{self.iteration}")
         modelname = self.model.stem
         self.full_data = SLP.write_progress_tsv(self.full_data, self.output, self.iteration, modelname)
@@ -162,16 +187,19 @@ class NewBamFileHandler(FileSystemEventHandler):
             sep="\t", index=False
         )
         output_file = f"{self.output}/iteration_{self.iteration}/confidence_over_time_plot_iteration_{self.iteration}"
-        color_translation = self.load_color_translation()
+        color_translation = self._load_color_translation()
         SLP.plot_confidence_over_time(self.full_data, output_file, color_translation)
 
 
-    def load_color_translation(self):
-        df = pd.read_csv("/Users/k.v.cammel/Developer/cold_setup_sturgeon/utils/color_translation.csv") #Set in config.yaml
+    def _load_color_translation(self) -> dict:
+        df = pd.read_csv(f"{self.utils}/color_translation.csv") #Set in config.yaml
         return dict(zip(df["class"], df["color"]))
 
-    def plot_cnv(self, new_file) -> None:
-        """Generate CNV plot"""
+    def plot_cnv(self) -> None:
+        """
+        Merges bam files to create bam file used for plotting the CNV for the current iteration
+        :return: None
+        """
         log.info(f"FLAG: Creating CNV plot for iteration_{self.iteration}")
         bamToCNV = f"{self.output}/merged_bams/merged_CNV_bam.bam"
         bam_dir = Path(self.output) / "merged_bams"

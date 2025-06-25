@@ -14,11 +14,19 @@ from rpy2.robjects import default_converter
 
 
 
-def write_progress_tsv(full_data,output_folder,iteration,modelname):
+def write_progress_tsv(full_data: pd.DataFrame,output_folder: Path,iteration: int,modelname: str) -> pd.DataFrame:
+    """
+    Writes the classified scores of the most recent iteration to a tsv and updates the dataframe, used for plotting the confidence over time
+    :param full_data: Dataframe  containing all classifier confidence scores of all iterations
+    :param output_folder: Path to output directory
+    :param iteration: Current iteration
+    :param modelname: Name of model used for classification
+    :return: Updated DataFrame with most recent iteration included
+    """
     current_csv = Path(f"{output_folder}/iteration_{iteration}/merged_probes_methyl_calls_{modelname}_iteration_{iteration}.csv")
     current_results = pd.read_csv(current_csv,sep=',',header=None).T.iloc[1:] #Read csv, transpose, and drop number_probes row
     current_results.columns = ["class", "score"]
-    #Add the color configuration
+    #Add the time stamp
     now = datetime.now()
     TimeStamp = now.strftime("%H:%M")
     current_results.loc[len(current_results)] = ["TIME", TimeStamp]
@@ -30,11 +38,13 @@ def write_progress_tsv(full_data,output_folder,iteration,modelname):
         mgd.rename(columns={"score": f"iteration_{iteration}"}, inplace=True)
         return mgd
 
-def plot_confidence_over_time(full_data,output_file,color_translation):
+def plot_confidence_over_time(full_data: pd.DataFrame,output_file: str,color_translation: dict) -> None:
     """
-    Write plot confidence over time
-    y-axis: confidence
-    x-axis: iteration
+    Creates confidence over time plots, in png and pdf format
+    :param full_data: Dataframe containing all the classifier confidence scores of all iterations
+    :param output_file: Path to output file
+    :param color_translation: Dict containing per label a color hex code
+    :return: None
     """
     #Filter out time from dataframe
     time_row = full_data[full_data["class"] == "TIME"]
@@ -96,7 +106,14 @@ def plot_confidence_over_time(full_data,output_file,color_translation):
     plt.savefig(f"{output_file}.pdf")
     plt.close()
 
-def plot_CNV_bam(input_bam, output_file, r_script):
+def plot_CNV_bam(input_bam: Path, output_file: Path, r_script: Path) -> None:
+    """
+    Runs the R script to create the CNV plot
+    :param input_bam: Merged bam file used for generating CNV data
+    :param output_file: path to output file
+    :param r_script: path to r script used for plotting
+    :return: None
+    """
     with localconverter(default_converter) as cv:
         r(f'source("{r_script}")')
         r_plot_cnv = globalenv['plot_cnv_from_bam_DNAcopy']

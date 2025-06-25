@@ -14,9 +14,16 @@ import SturgeonBamHandling as SBH
 import SturgeonLogging as SL
 
 # Load config file with default values
-CONFIG_PATH = Path("/Users/k.v.cammel/Documents/Projects/P2_wrapper/sturgeon/python_scripts/config.yaml")
+pythonPath = Path(__file__).resolve()
+sturgeonRoot = pythonPath.parents[0]
+CONFIG_PATH = sturgeonRoot / "config.yaml"
+
 def load_config(config_yaml: Path) -> dict:
-    """Load configuration from YAML"""
+    """
+    Load default config settings from yaml
+    :param config_yaml: Path to config.yaml
+    :return: dict containing default config settings
+    """
     try:
         with open(config_yaml, 'r') as config_file:
             return yaml.safe_load(config_file)
@@ -31,23 +38,35 @@ log = SL._get_logger()
 # Handle termination of python script
 shutdown_event = threading.Event()
 
-def handle_exit(signum, frame):
+def _handle_exit(signum, frame) -> None:
+    """
+    Enters shutdown mode after receiving stop signal
+    """
     log.info(f"Received termination signal ({signum}), shutting down...")
     shutdown_event.set()
 
-def register_signal_handlers():
-    signal.signal(signal.SIGINT, handle_exit)
-    signal.signal(signal.SIGTERM, handle_exit)
+def _register_signal_handlers():
+    """
+    Exiting shutdown either by killing through the CLI or via the GUI
+    """
+    signal.signal(signal.SIGINT, _handle_exit)
+    signal.signal(signal.SIGTERM, _handle_exit)
 
 
-def normalize_barcode(ctx, param, value) -> String:
+def _normalize_barcode(ctx, param, value) -> String:
     """If users inputs 1 character string for barcode, add 0 as prefix"""
     if value and len(value) == 1:
         return f"0{value}"
     return value
 
 def set_results_directory(input: Path, barcode: str, gridion: bool) -> Path:
-    """Define the exact directory where the bam files will be found, as fool-proof as possible"""
+    """
+    Finalize the output directory for sturgeon results
+    :param input: Results path of sequencing run
+    :param barcode: Given barcode used for library prep
+    :param gridion: Boolean for checking if run is a gridion verification run
+    :return: Path to directory with bam files to watched and processed
+    """
     if gridion:
         return input
     else:
@@ -69,8 +88,11 @@ def set_results_directory(input: Path, barcode: str, gridion: bool) -> Path:
             return Path(f"{base_input}/bam_pass/{barcode}")
 
 
-def wait_for_input_directory(input: Path) -> None:
-    """Wait for the results directory to be created"""
+def _wait_for_input_directory(input: Path) -> None:
+    """
+    Waits for the results directory with the bam files to be created.
+    Checks every 20 seconds
+    """
     while not input.exists():
         log.info(f"Waiting for results directory {input} to be created.")
         time.sleep(20)
@@ -94,13 +116,16 @@ def click_command(func):
         "-s", "--sturgeon_script", type=click.Path(path_type=Path, exists=True, file_okay=True), default=None, help="Path to the script that will be called for processing."
     )
     @click.option(
-        "-b", "--barcode", type=str, default=None, callback=normalize_barcode,help="Barcode used in library preparation."
+        "-b", "--barcode", type=str, default=None, callback=_normalize_barcode,help="Barcode used in library preparation."
     )
     @click.option(
         "-f", "--freq", type=int, default=None, help="Number of iterations before merging BAMs and plotting CNV."
     )
     @click.option(
         "-m", "--model", type=click.Path(path_type=Path, exists=True), default=None, help="Location of model used for sturgeon prediction"
+    )
+    @click.option(
+        "-u", "--utils", type=click.Path(path_type=Path, exists=True), default=None, help="Location of utils directory"
     )
     @click.option(
         "-r", "--r_script", type=click.Path(path_type=Path, exists=True), default=None,help="Location of R script for plotting CNV"
@@ -119,6 +144,7 @@ def click_command(func):
         kwargs['lock'] = kwargs.get('lock') or Path(config['paths']['script_lock'])
         kwargs['sturgeon_script'] = kwargs.get('sturgeon_script') or Path(config['paths']['sturgeon_script'])
         kwargs['model'] = kwargs.get('model') or Path(config['paths']['model'])
+        kwargs['utils'] = kwargs.get('utils') or Path(config['paths']['utils'])
         kwargs['r_script'] = kwargs.get('r_script') or Path(config['paths']['r_script'])
         kwargs['barcode'] = kwargs['barcode'] or config.get('barcode')
         kwargs["freq"] = kwargs["freq"] or config.get("freq")
@@ -131,15 +157,17 @@ def click_command(func):
 
 
 @click_command
-def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: str, freq: int, model: Path, r_script: Path, gridion: bool, shutdown_file:Path):
+def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: str, freq: int, model: Path, utils: Path, r_script: Path, gridion: bool, shutdown_file:Path):
     """
     Monitors a folder for new BAM files and processes them as they appear.
     """
+
     results_directory = set_results_directory(input, barcode, gridion)
-    register_signal_handlers()
+    _register_signal_handlers()
 
     lock_manager = SBH.LockManager(lock)
-    lock_manager.check_lock()
+    lock_manager._check_lock()
+
 
     try:
 
@@ -149,7 +177,7 @@ def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: 
             log.info("Sturgeon terminated during wait for results")
             return
         log.info(f"Starting to monitor for new BAM files in: {results_directory}")
-        event_handler = SBH.NewBamFileHandler(sturgeon_script, output, model, freq, r_script, results_directory, gridion)
+        event_handler = SBH.NewBamFileHandler(sturgeon_script, output, model, freq, utils, r_script, results_directory, gridion)
         observer = Observer()
         observer.schedule(event_handler, path=results_directory, recursive=False)
         observer.start()
@@ -164,7 +192,7 @@ def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: 
     finally:
         observer.stop()
         observer.join()
-        lock_manager.remove_lock()
+        lock_manager._remove_lock()
 
         if shutdown_file.exists():
             shutdown_file.unlink()

@@ -1,13 +1,15 @@
 # Sturgeon project configuration
 paths:
-  r_script: "/Users/k.v.cammel/Developer/cold_setup_sturgeon/utils/CNV_plot.R"  # Eventually change path when installed on P2
-  bam_input: "./20250417_1421_P2I-00332-A_PBC28823_8dc9d25f"
-  sturgeon_script: "/Users/k.v.cammel/Developer/cold_setup_sturgeon/sturgeon_P2.sh"
-  results_dir: "./sturgeon_results"
-  script_lock: "/Users/k.v.cammel/Documents/Projects/P2_wrapper/sturgeon/script.lock"
-  model: "/Users/k.v.cammel/Developer/cold_setup_sturgeon/sturgeon/include/models/general.zip"
-  shutdown_file: "/Users/k.v.cammel/Documents/Projects/P2_wrapper/sturgeon/shutdown.flag"
+  utils: "/home/prom/sturgeon/utils"
+  r_script: "/home/prom/sturgeon/utils/CNV_plot.R"
+  bam_input: "/home/prom/sturgeon/bam_pass"
+  sturgeon_script: "/home/prom/sturgeon/sturgeon_P2.sh"
+  results_dir: "/home/prom/sturgeon/sturgeon_results"
+  script_lock: "/home/prom/sturgeon/script.lock"
+  model: "/home/prom/sturgeon/sturgeon/include/models/general.zip"
+  shutdown_file: "/home/prom/sturgeon/shutdown.flag"
 logging:
   log_level: "INFO"
 barcode: 18
 freq: 1
+gridion: False
