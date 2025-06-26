@@ -114,6 +114,7 @@ def plot_CNV_bam(input_bam: Path, output_file: Path, r_script: Path, utils: Path
     :param r_script: path to r script used for plotting
     :return: None
     """
+    utils = str(utils) #rpy2 does not always work with Path objects
     with localconverter(default_converter) as cv:
         r(f'source("{r_script}")')
         r_plot_cnv = globalenv['plot_cnv_from_bam_DNAcopy']
