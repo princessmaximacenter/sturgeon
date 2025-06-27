@@ -172,7 +172,7 @@ def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: 
     try:
 
         if not results_directory.exists():
-            wait_for_input_directory(results_directory)
+            _wait_for_input_directory(results_directory)
         if shutdown_event.is_set():
             log.info("Sturgeon terminated during wait for results")
             return

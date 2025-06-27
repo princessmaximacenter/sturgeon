@@ -134,7 +134,7 @@ class NewBamFileHandler(FileSystemEventHandler):
             filePath = self.file_queue.get()
             self.run_script(filePath)
 
-    def _on_created(self, event: FileSystemEvent) -> None:
+    def on_created(self, event: FileSystemEvent) -> None:
         """
         Process newly created/detected bam file and adds to queue
         :param event: Newly detected bam file
