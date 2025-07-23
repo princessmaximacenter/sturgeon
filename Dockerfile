@@ -73,7 +73,10 @@ RUN apt update \
 
 RUN wget https://github.com/nanoporetech/modkit/releases/download/v0.5.0/modkit_${MODKIT_VERSION}_u16_x86_64.tar.gz \
     && tar -xzf modkit_${MODKIT_VERSION}_u16_x86_64.tar.gz \
-    && mv dist_modkit_${MODKIT_VERSION}_5120ef7 /usr/local/bin/
+    && mv dist_modkit_${MODKIT_VERSION}_5120ef7 modkit  \
+    && mv modkit /usr/local/bin/
+
+ENV PATH=$PATH:/usr/local/bin/modkit
 
 RUN rm -rf /tmp/* \
     && rm -rf /var/lib/apt/lists/*
