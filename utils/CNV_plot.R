@@ -1,5 +1,6 @@
-suppressMessages(library(QDNAseq))
-suppressMessages(library(DNAcopy))
+#!/usr/bin/env Rscript
+suppressWarnings(suppressMessages(library(QDNAseq)))
+suppressWarnings(suppressMessages(library(DNAcopy)))
 
 plot_cnv_from_bam_DNAcopy <- function(bam, output_file = NULL, utils_path= NULL, makeplot = TRUE,
                                       lines_only = FALSE,
@@ -101,5 +102,17 @@ plot_cnv_from_bam_DNAcopy <- function(bam, output_file = NULL, utils_path= NULL,
     dev.off()
   }
   output = list(pointdata=pointcolorframe, segdata=segment.smoothed.CNA.object)
-  return(output)
+  invisible(output)
 }
+
+args <- commandArgs(trailingOnly = TRUE)
+
+if (length(args) < 3) {
+  stop("Usage: Rscript script.R <input_bam> <output_file> <utils_path>")
+}
+
+bam <- args[1]
+output_file <- args[2]
+utils <- args[3]
+
+plot_cnv_from_bam_DNAcopy(bam, output_file, utils)
