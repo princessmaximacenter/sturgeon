@@ -1,3 +1,6 @@
+ARG IMAGE_NAME=sturgeon
+ARG IMAGE_VERSION=2.0.0
+
 ARG BASE_PYTHON_IMAGE_NAME=python
 ARG BASE_PYTHON_IMAGE_VERSION=3.9.6-slim-buster
 ARG BASE_PYTHON_IMAGE_DIGEST=sha256:e192c9d82785f103fcb27a62067784795fb0c3cb84ba2588577893cd7f6b7308
@@ -17,6 +20,8 @@ FROM ${BASE_PYTHON_IMAGE_NAME}@${BASE_PYTHON_IMAGE_DIGEST}
 ARG BASE_PYTHON_IMAGE_NAME
 ARG BASE_PYTHON_IMAGE_VERSION
 ARG BASE_PYTHON_IMAGE_DIGEST
+ARG IMAGE_NAME
+ARG IMAGE_VERSION
 ARG R_VERSION
 ARG CRAN_R_GPG_FINGERPRINT
 ARG CRAN_R_URI
@@ -73,6 +78,17 @@ ENV PATH=$PATH:/usr/local/bin/modkit
 
 RUN rm -rf /tmp/* \
     && rm -rf /var/lib/apt/lists/*
+
+LABEL org.opencontainers.image.title="${IMAGE_NAME}" \
+      org.opencontainers.image.description="Sturgeon ${IMAGE_VERSION} Python + R + Bash image for live sturgeon prediction and plotting" \
+      org.opencontainers.image.version="${IMAGE_VERSION}" \
+      org.opencontainers.image.source="https://github.com/princessmaximacenter/sturgeon/dev/" \
+      org.opencontainers.image.authors="PMC Translational Bioinformatics TranslationalBioinf@prinsesmaximacentrum.nl" \
+      org.opencontainers.image.vendor="Princess Máxima Center for Pediatric Oncology" \
+      apps.r.source="http://cloud.r-project.org/bin/linux/debian" \
+      apps.r.version="${R_VERSION}" \
+      apps.python.version="${BASE_PYTHON_IMAGE_VERSION}"
+
 
 USER docker
 WORKDIR /

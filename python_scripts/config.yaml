@@ -1,12 +1,12 @@
 # Sturgeon project configuration
 paths:
-  utils: "/home/docker/sturgeon/utils"
-  r_script: "/home/docker/sturgeon/utils/CNV_plot.R"
+  utils: "/opt/sturgeon/utils"
+  r_script: "/opt/sturgeon/utils/CNV_plot.R"
   bam_input: "/home/prom/sturgeon/bam_pass"
-  sturgeon_script: "/home/docker/sturgeon/sturgeon_P2.sh"
+  sturgeon_script: "/opt/sturgeon/sturgeon_P2.sh"
   results_dir: "/home/prom/sturgeon/sturgeon_results"
-  script_lock: "home/docker/sturgeon/script.lock"
-  model: "/home/prom/sturgeon/sturgeon/include/models/general.zip"
+  script_lock: "/home/docker/sturgeon/script.lock"
+  model: "/opt/sturgeon/sturgeon/include/models/general.zip"
   shutdown_file: "/home/docker/sturgeon/shutdown.flag"
 logging:
   log_level: "INFO"

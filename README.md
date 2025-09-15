@@ -29,6 +29,7 @@ Vermeulen, C., Pagès-Gallego, M., Kester, L. et al. Ultra-fast deep-learned CNS
 ## System requirements
 Software:
 ```
+Python version =>3.8 <3.10
 modkit (or Rust/Cargo for installation): https://github.com/nanoporetech/modkit
 
 ```
@@ -278,3 +279,18 @@ The output directory cannot exist yet, it will be made by the wrapper script.
 A config.yaml file can be found in the python_scripts directory, which is intended for the use with the Docker Container. 
 
 If the --gridion flag is set to True, previous analysis runs that were performed with sturgeon V1.0.0 can be re-analyzed for validation purposes. 
+
+# Docker usage
+A docker container has also been created for the live prediction. 
+This can be run with: 
+```commandline
+docker run --rm -i -v /location/to/sequencing/run/:/home/docker/sturgeon/input \
+-v /location/where/output/dir/is_created/:/home/docker/sturgeon/output \
+-v $PWD:/home/docker/sturgeon \
+sturgeon:v2.0.0 SturgeonLivePrediction \
+--input /home/docker/sturgeon/input \
+--output /home/docker/sturgeon/output/prediction_output/
+
+
+
+```
