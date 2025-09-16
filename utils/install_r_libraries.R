@@ -12,7 +12,7 @@ proportion_cpu_used <- 1
 
 # Biocoductor libraries are version bound to the BiocManager version
 # so we only need BiocManager version and names of libraries to install
-bioconductor_version <- "3.19"
+bioconductor_version <- "3.21"
 bio_packages <- c("QDNAseq", "DNAcopy")
 
 ## list of libraries/packages and version requirements

@@ -281,15 +281,22 @@ A config.yaml file can be found in the python_scripts directory, which is intend
 If the --gridion flag is set to True, previous analysis runs that were performed with sturgeon V1.0.0 can be re-analyzed for validation purposes. 
 
 # Docker usage
-A docker container has also been created for the live prediction. 
-This can be run with: 
+A docker container has also been created for the live prediction. \
+This can be installed with: 
+```commandline
+docker pull sturgeon:v2.0.0
+```
+Usage example: \
+The model file still needs to be installed seperately
 ```commandline
 docker run --rm -i -v /location/to/sequencing/run/:/home/docker/sturgeon/input \
 -v /location/where/output/dir/is_created/:/home/docker/sturgeon/output \
+-v /location/where/modelfile/is.zip:/opt/sturgeon/sturgeon/include/models/general.zip \
 -v $PWD:/home/docker/sturgeon \
 sturgeon:v2.0.0 SturgeonLivePrediction \
 --input /home/docker/sturgeon/input \
---output /home/docker/sturgeon/output/prediction_output/
+--output /home/docker/sturgeon/output/prediction_output/ \
+--barcode {barcode}
 
 
 
