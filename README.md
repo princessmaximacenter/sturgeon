@@ -284,7 +284,7 @@ If the --gridion flag is set to True, previous analysis runs that were performed
 A docker container has also been created for the live prediction. \
 This can be installed with: 
 ```commandline
-docker pull sturgeon:v2.0.0
+docker pull princessmaximacenter/sturgeon:v2.0.0
 ```
 Usage example: \
 The model file still needs to be installed seperately
@@ -293,7 +293,7 @@ docker run --rm -i -v /location/to/sequencing/run/:/home/docker/sturgeon/input \
 -v /location/where/output/dir/is_created/:/home/docker/sturgeon/output \
 -v /location/where/modelfile/is.zip:/opt/sturgeon/sturgeon/include/models/general.zip \
 -v $PWD:/home/docker/sturgeon \
-sturgeon:v2.0.0 SturgeonLivePrediction \
+princessmaximacenter/sturgeon:v2.0.0 SturgeonLivePrediction \
 --input /home/docker/sturgeon/input \
 --output /home/docker/sturgeon/output/prediction_output/ \
 --barcode {barcode}
