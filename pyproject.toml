@@ -53,7 +53,6 @@ dependencies = [
     "python-dateutil>=2.9.0.post0",
     "pytz>=2025.2",
     "PyYAML>=6.0.2",
-    "rpy2>=3.5.17",
     "scipy>=1.13.1",
     "seaborn>=0.13.2",
     "six>=1.17.0",
@@ -75,6 +74,8 @@ modkit = {git = "https://github.com/nanoporetech/modkit.git", branch = "main"}
 
 [project.scripts]
 sturgeon = "sturgeon.main:run"
+SturgeonLivePrediction = "python_scripts.SturgeonLivePrediction:main"
+
 
 [options.package_data]
 sturgeon = "include/*"

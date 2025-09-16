@@ -1,3 +1,18 @@
+# Sturgeon wrapper for intra-operative prediction
+
+This repository contains the Sturgeon CNS classifier and a collection of wrapper scripts to enable live prediction.
+During live prediction, the wrapper script watches the input directory for any bam files that are already present and will continue scanning for newly created bam files. 
+With modkit, the methylation data is extracted from the bam files and the Sturgeon Classifier is run on the resulting bed file.
+```
+Per iteration the following are generated:
+  - A csv file with confidence score of all subtypes in the Sturgeon model
+  - A bar plot with the confidence score of all subtypes in the Sturgeon model
+  - A confidence over time plot showing the progression of the confidence scores per sturgeon iteration
+
+Depending on the set frequency, a CNV plot is also created after every n iterations
+```
+
+
 # Sturgeon
 
 Sturgeon is a CNS neural network classifier based on the reference dataset published by [Capper et al., 2018](https://doi.org/10.1038/nature26000).
@@ -14,10 +29,17 @@ Vermeulen, C., Pagès-Gallego, M., Kester, L. et al. Ultra-fast deep-learned CNS
 ## System requirements
 Software:
 ```
+Python version =>3.8 <3.10
 modkit (or Rust/Cargo for installation): https://github.com/nanoporetech/modkit
 
 ```
 
+Hardware:
+Testing and validation for the wrapper scripts have been performed on the PromethION 2 Integrated (https://nanoporetech.com/products/sequence/promethion-2)
+As long as the output file structure is the same, the scripts should work on any ONT sequencing device. 
+```
+An Oxford Nanopore Technology Sequencing device. 
+```
 ## Installation
 
 Get the repository.
@@ -215,32 +237,67 @@ Values indicate the score that the model gave to each class. Higher scores indic
 
 ## CNS type prediction while sequencing: `live`
 
-This program can be used during live basecalling. It watches over a folder and waits for bam files (output of Guppy) or txt files (output of Megalodon) to be written there. Then it processes them as they come. This program expects that all bam files in that folder come from the same sample, therefore the amount of sequencing for that sample increases over time. In this line, each bam file will not be treated independently, but instead they will be added in a cumulative manner. 
+This program can be used during live basecalling and alignment. It watches over a folder and waits for bam files to be written there. Then it processes them as they come. This program expects that all bam files in that folder come from the same sample, therefore the amount of sequencing for that sample increases over time. In this line, each bam file will not be treated independently, but instead they will be added in a cumulative manner. 
+It is assumed that basecalling and alignment are performed directly by the ONT sequencing device. 
 
-Example usage with demo data (guppy bam files):
+
+Usage:
+```commandline
+SturgeonLivePrediction
+Usage: SturgeonLivePrediction [OPTIONS]
+
+Options:
+  -i, --input PATH            Directory of sequencing run for sturgeon
+                              analysis
+  -o, --output PATH           Directory where results are written.
+  -l, --lock PATH             Name of lock file.
+  -s, --sturgeon_script PATH  Path to the script that will be called for
+                              processing.
+  -b, --barcode TEXT          Barcode used in library preparation.
+  -f, --freq INTEGER          Number of iterations before merging BAMs and
+                              plotting CNV.
+  -m, --model PATH            Location of model used for sturgeon prediction
+  -u, --utils PATH            Location of utils directory
+  -r, --r_script PATH         Location of R script for plotting CNV
+  -g, --gridion BOOLEAN       If run is a gridion verification run, some
+                              parameters are changed
+  -sf, --shutdown_file PATH   Location of shutdown flag
+  --gui_activated             Flag to indicate script is run through GUI
+  --help                      Show this message and exit.
 ```
-sturgeon live \
--i demo/bam \
--o demo/bam/out_live \
--s guppy \
---model-files PATH_TO_MODEL_DIR/general.zip \
---plot-results
+### **Important notes about usage**
+The input directory can be given in the following ways:
+```commandline
+/location/to/sequencing/run/
+/location/to/sequencing/run/bam_pass/
+/location/to/sequencing/run/bam_pass/barcodeXX/
 ```
+The code assumes that the files of interest are in a "barcodeXX" directory, so an alias through the use of a samplesheet **cannot** currently be used. 
 
-Example usage with demo data (megalodon txt files):
+The output directory cannot exist yet, it will be made by the wrapper script.
+
+A config.yaml file can be found in the python_scripts directory, which is intended for the use with the Docker Container. 
+
+If the --gridion flag is set to True, previous analysis runs that were performed with sturgeon V1.0.0 can be re-analyzed for validation purposes. 
+
+# Docker usage
+A docker container has also been created for the live prediction. \
+This can be installed with: 
+```commandline
+docker pull sturgeon:v2.0.0
 ```
-sturgeon live \
--i demo/mega \
--o demo/mega/out_live \
--s megalodon \
---model-files PATH_TO_MODEL_DIR/general.zip \
---plot-results
+Usage example: \
+The model file still needs to be installed seperately
+```commandline
+docker run --rm -i -v /location/to/sequencing/run/:/home/docker/sturgeon/input \
+-v /location/where/output/dir/is_created/:/home/docker/sturgeon/output \
+-v /location/where/modelfile/is.zip:/opt/sturgeon/sturgeon/include/models/general.zip \
+-v $PWD:/home/docker/sturgeon \
+sturgeon:v2.0.0 SturgeonLivePrediction \
+--input /home/docker/sturgeon/input \
+--output /home/docker/sturgeon/output/prediction_output/ \
+--barcode {barcode}
+
+
+
 ```
-
-The tool needs to be stopped manually because it will wait infinitely for new files in the target folder. In most systems CTRL+C should interrupt and exit the program.
-
-In the output folder there will be a bunch of intermediate files, the most important ones are:
-
-- `predictions_modelname.csv`: which contains the predicted scores for each CNS class. Each row contains the cumulative predicitions, so row 1 are just the predictions for the first bam file, row 2 are the predictions for the first and second bam files combined, etc.
-- `predictions_n_modelname.pdf`: these contains barplots for each of the rows in the previous described csv file.
-- `predictions_overtime_modelname.pdf`: this contains a plot that describes the change in scores over time. Only classes with an average score >0.1 over time are plotted.
