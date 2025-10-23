@@ -4,14 +4,14 @@ import pandas as pd
 from pathlib import Path
 import os
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
-from queue import Queue
+from queue import Queue, Empty
 import threading
 import re
 import pysam
 
 
-import SturgeonLivePlotting as SLP
-import SturgeonLogging as SL
+from python_scripts import SturgeonLivePlotting as SLP
+from python_scripts import SturgeonLogging as SL
 
 
 log = SL._get_logger()
@@ -44,7 +44,7 @@ class LockManager:
 
 
 class NewBamFileHandler(FileSystemEventHandler):
-    def __init__(self, sturgeon_script_path: Path, output: Path, model: Path, freq: int, utils: Path, r_script_path: Path, input: Path, gridion: bool) -> None:
+    def __init__(self, sturgeon_script_path: Path, output: Path, model: Path, freq: int, utils: Path, r_script_path: Path, input: Path, gridion: bool, shutdown_event: threading.Event, version2: bool, conf: Path) -> None:
         self.iteration = 1
         self.script_path = sturgeon_script_path
         self.output = output
@@ -55,6 +55,10 @@ class NewBamFileHandler(FileSystemEventHandler):
         self.r_script_path = r_script_path
         self.watch_directory = input
         self.gridion = gridion
+        self.version2 = version2
+        self.conf = conf
+        self.shutdown_event = shutdown_event
+        self.current_process = None
 
         """Create queue and processing thread for bam files (in chronological order)"""
         self.file_queue = Queue()
@@ -76,12 +80,15 @@ class NewBamFileHandler(FileSystemEventHandler):
 
         bamFiles = []
         for bamFile in self.watch_directory.glob("*.bam"):
-            creationTime = os.path.getmtime(bamFile)
+            # Extract trailing number before ".bam"
+            match = re.search(r"_(\d+)\.bam$", bamFile.name)
+            if match:
+                number = int(match.group(1))
+            else:
+                number = -1  # fallback if no number found
+            bamFiles.append((bamFile, number))
 
-            bamFiles.append((bamFile,creationTime))
-
-        bamFiles.sort(key=lambda x:x[1]) #sort by oldest bam file first
-
+        bamFiles.sort(key=lambda x: x[1])
         for bamFile, _ in bamFiles:
             self.file_queue.put(bamFile)
 
@@ -130,9 +137,13 @@ class NewBamFileHandler(FileSystemEventHandler):
                 self.file_queue.put(bamPath)
 
     def _process_queue(self):
-        while True:
-            filePath = self.file_queue.get()
-            self.run_script(filePath)
+        while not self.shutdown_event.is_set():
+            try:
+                filePath = self.file_queue.get(timeout=1)
+                self.run_script(filePath)
+                self.file_queue.task_done()
+            except Empty:
+                continue
 
     def on_created(self, event: FileSystemEvent) -> None:
         """
@@ -153,10 +164,18 @@ class NewBamFileHandler(FileSystemEventHandler):
         """
         try:
             log.info(f"FLAG: Starting processing of iteration_{self.iteration}")
-            subprocess.run(
-                ["bash", str(self.script_path), str(new_file), str(self.output), str(self.model), str(self.iteration)],
-                check=True
-            )
+            self.current_process = subprocess.Popen(
+                ["bash", str(self.script_path),
+                 str(new_file),
+                 str(self.output),
+                 str(self.model),
+                 str(self.iteration),
+                 str(self.version2),
+                 str(self.conf)
+                ])
+            self.current_process.wait()
+            self.current_process = None
+
             if self.gridion == False:
                 ##Create symlink for merging of bams for CNV file
                 symlink_target = Path(f"{self.output}/merged_bams/bam_for_CNV_it{self.iteration}.bam")
@@ -173,6 +192,8 @@ class NewBamFileHandler(FileSystemEventHandler):
             log.info(f"FLAG: Waiting for new bam file")
         except subprocess.CalledProcessError as e:
             log.error(f"Script failed with error: {e}")
+        finally:
+            self.current_process = None
 
     def plot_process(self) -> None:
         """
@@ -180,7 +201,10 @@ class NewBamFileHandler(FileSystemEventHandler):
         :return: None
         """
         log.info(f"FLAG: Creating confidence over time plot for iteration_{self.iteration}")
-        modelname = self.model.stem
+        if self.version2 == "true":
+            modelname = "cns-v2"
+        else:
+            modelname = self.model.stem
         self.full_data = SLP.write_progress_tsv(self.full_data, self.output, self.iteration, modelname)
         self.full_data.to_csv(
             self.output / f"iteration_{self.iteration}/classifier_progress_iteration_{self.iteration}.tsv",
@@ -195,11 +219,16 @@ class NewBamFileHandler(FileSystemEventHandler):
         df = pd.read_csv(f"{self.utils}/color_translation.csv") #Set in config.yaml
         return dict(zip(df["class"], df["color"]))
 
-    def plot_cnv(self) -> None:
+    def plot_cnv(self, iteration: int = None) -> None:
         """
         Merges bam files to create bam file used for plotting the CNV for the current iteration
+        :param iteration: Iteration check for handling cleanup after shutdown
         :return: None
         """
+
+        if iteration is not None:
+            self.iteration = iteration
+
         log.info(f"FLAG: Creating CNV plot for iteration_{self.iteration}")
         bamToCNV = f"{self.output}/merged_bams/merged_CNV_bam.bam"
         bam_dir = Path(self.output) / "merged_bams"
@@ -215,15 +244,22 @@ class NewBamFileHandler(FileSystemEventHandler):
             modkitBamsToMerge = sorted(
                 [
                     bam for bam in bam_dir.glob("bam_for_CNV_it*.bam")
-                    if (match := re.search(r'bam_for_CNV_it(\d+)\.bam$', bam.name)) and int(match.group(1)) <= self.iteration
+                    if (match := re.search(r'bam_for_CNV_it(\d+)\.bam$', bam.name)) and int(
+                    match.group(1)) <= self.iteration
                 ],
                 key=lambda bam: int(re.search(r'bam_for_CNV_it(\d+)\.bam$', bam.name).group(1))
             )
 
-        pysam.merge("-@","10","-f","-O","BAM","-o", bamToCNV, *map(str, modkitBamsToMerge)) #Merge all bams after modkit, before creating CNV plot
+        pysam.merge("-@", "10", "-f", "-O", "BAM", "-o", bamToCNV,
+                    *map(str, modkitBamsToMerge))  # Merge all bams before modkit, before creating CNV plot
         output_file = f"{self.output}/iteration_{self.iteration}/CNV_plot_iteration_{self.iteration}"
-        SLP.plot_CNV_bam(bamToCNV, output_file, self.r_script_path,self.utils)
+        self.current_process = SLP.plot_CNV_bam(bamToCNV, output_file, self.r_script_path, self.utils)
+        self.current_process.wait()
+        self.current_process = None
 
-
-
+    def wait_for_process_completion(self):
+        if self.current_process:
+            log.info("Waiting for active subprocess to finish...")
+            self.current_process.wait()
+            self.current_process = None
 

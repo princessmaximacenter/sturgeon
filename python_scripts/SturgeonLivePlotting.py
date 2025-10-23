@@ -8,9 +8,7 @@ import numpy as np
 import pandas as pd
 from pathlib import Path
 from datetime import datetime
-from rpy2.robjects import r, globalenv
-from rpy2.robjects.conversion import localconverter
-from rpy2.robjects import default_converter
+import subprocess
 
 
 
@@ -112,12 +110,15 @@ def plot_CNV_bam(input_bam: Path, output_file: Path, r_script: Path, utils: Path
     :param input_bam: Merged bam file used for generating CNV data
     :param output_file: path to output file
     :param r_script: path to r script used for plotting
+    :param utils: Path to utils directory for misc files
     :return: None
     """
-    utils = str(utils) #rpy2 does not always work with Path objects
-    with localconverter(default_converter) as cv:
-        r(f'source("{r_script}")')
-        r_plot_cnv = globalenv['plot_cnv_from_bam_DNAcopy']
-        r_plot_cnv(input_bam, output_file, utils)
+    return subprocess.Popen([
+        "Rscript",
+        str(r_script),
+        str(input_bam),
+        str(output_file),
+        str(utils)
+    ])
 
 
