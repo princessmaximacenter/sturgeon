@@ -7,12 +7,27 @@ from tokenize import String
 import click
 import signal
 from pathlib import Path
-import os
 import yaml
 from watchdog.observers import Observer
 
 from python_scripts import SturgeonBamHandling as SBH
 from python_scripts import SturgeonLogging as SL
+from python_scripts import SturgeonLivePlotting as SLP
+
+"""
+
+TODO: Betere logging van de sturgeon run voor metadata om op te slaan in een run. 
+Dit zou dan dus iets zijn van:
+    -Input parameters -> Check
+    -Highest classification at final iteration -> Check
+    -Number of iterations -> Check
+    -UUID -> Maar die doe ik nu via nextflow, dus das niet echt handig per se
+    
+    Moet even uitvogelen of je 2 verschillende logging files ofzo kan doen
+    
+    
+"""
+
 
 # Load config file with default values
 pythonPath = Path(__file__).resolve()
@@ -32,8 +47,7 @@ def load_config(config_yaml: Path) -> dict:
         logging.error(f"Error loading config: {e}, exiting...")
         sys.exit(1)
 
-SL._setup_logging(CONFIG_PATH)
-log = SL._get_logger()
+
 
 
 # Handle termination of python script
@@ -43,7 +57,7 @@ def _handle_exit(signum, frame) -> None:
     """
     Enters shutdown mode after receiving stop signal
     """
-    log.info(f"Received termination signal ({signum}), shutting down...")
+    app_log.info(f"Received termination signal ({signum}), shutting down...")
     shutdown_event.set()
 
 def _register_signal_handlers():
@@ -99,18 +113,18 @@ def _wait_for_input_directory(input: Path, shutdown_file: Path) -> bool:
 
     while not shutdown_event.is_set():
         if shutdown_file.exists():
-            log.info("Shutdown requested during wait for input directory.")
+            app_log.info("Shutdown requested during wait for input directory.")
             shutdown_event.set()
             return False
         if input.exists():
-            log.info(f"Results directory {input} found, proceeding with sturgeon analysis.")
+            app_log.info(f"Results directory {input} found, proceeding with sturgeon analysis.")
             return True
         if wait_time % log_interval_time == 0:
-            log.info(f"Waiting for results directory {input} to be created.")
+            app_log.info(f"Waiting for results directory {input} to be created.")
         time.sleep(1)
         wait_time += 1
 
-    log.info("Shutdown event set before input directory appeared.")
+    app_log.info("Shutdown event set before input directory appeared.")
     return False
 
 def _file_cleanup_shutdown(output, iteration, plot_cnv, plot_process) -> None:
@@ -146,7 +160,7 @@ def _file_cleanup_shutdown(output, iteration, plot_cnv, plot_process) -> None:
             shutil.copy(final_classification_src, final_classification_dest)
 
     except Exception as e:
-        log.warning(f"Could not copy final classification file: {e}")
+        app_log.warning(f"Could not copy final classification file: {e}")
 
     #Remove symbolic links to avoid potential problems in the future
     bam_link_dir = Path(f"{output}/merged_bams/")
@@ -192,6 +206,9 @@ def click_command(func):
     @click.option(
         "--gui_activated", is_flag=True, default=False, help="Flag to indicate script is run through GUI"
     )
+    @click.option(
+        "-lr", "--live_run", is_flag=True, default=False, help="Flag to indicate whether sequencing and analysis is live"
+    )
 
     def wrapper(*args, **kwargs):
         config = load_config(CONFIG_PATH)
@@ -207,6 +224,7 @@ def click_command(func):
         kwargs["gridion"] = kwargs["gridion"] or config.get("gridion")
         kwargs["shutdown_file"] = kwargs["shutdown_file"] or Path(config['paths']['shutdown_file'])
         kwargs["gui_activated"] = kwargs["gui_activated"] or config.get("gui_activated")
+        kwargs["live_run"] = kwargs["live_run"] or config.get("live_run")
 
         return func(*args, **kwargs)
 
@@ -214,10 +232,52 @@ def click_command(func):
 
 
 @click_command
-def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: str, freq: int, model: Path, utils: Path, r_script: Path, gridion: bool, shutdown_file:Path, gui_activated: bool):
+def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: str, freq: int, model: Path, utils: Path, r_script: Path, gridion: bool, shutdown_file:Path, gui_activated: bool, live_run: bool):
     """
     Monitors a folder for new BAM files and processes them as they appear.
     """
+
+
+    output.mkdir(parents=True, exist_ok=True)
+
+    # Initialize logging
+    # app_log for printing messages to stdout
+    # meta_log for logging relevant metadata
+    SL._setup_logging(CONFIG_PATH, output)
+    app_log = SL._get_app_logger()
+    meta_log = SL._get_metadata_logger()
+    METADATA_FILENAME ="sturgeon_metadata.json"
+    cli_args = locals()
+    logging_params = {
+        k: str(v) if isinstance(v, Path) else v
+        for k, v in cli_args.items()
+        if k not in ['SL', 'app_log', 'meta_log', 'CONFIG_PATH', 'wrapper', 'func']
+    }
+
+    meta_log.info({
+        'event': 'InputParameters',
+        'source': 'CLI',
+        'arguments': logging_params
+    })
+
+    try:
+        if not gui_activated:
+            output_already_used  = any(
+                f.name != METADATA_FILENAME
+                for f in output.iterdir()
+            )
+            if output_already_used:
+                app_log.error("Output directory already exists and contains files")
+                meta_log.info({'event': 'StartupFail', 'reason': 'Output directory not empty'})
+                return
+
+        else:
+            app_log.info("Sturgeon started through GUI, assuming output dir handled externally")
+
+    except Exception:
+        app_log.error("An error occurred during output directory check.", exc_info=True)
+        meta_log.info({'event': 'StartupFail', 'reason': 'Directory access error'})
+        sys.exit(1)
 
     results_directory = set_results_directory(input, barcode, gridion)
     _register_signal_handlers()
@@ -230,33 +290,24 @@ def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: 
 
 
     try:
-        if not gui_activated:
-            output.mkdir(exist_ok=False) #Check if output directory exists
-        else:
-            log.info("Sturgeon started through gui, output dir already created")
-        os.chdir(output) #Change working directory to output, avoids permission issues wrt docker and sturgeon
-    except FileExistsError:
-        log.warning("Output directory already exists, exiting sturgeon...")
-
-    else:
         if not results_directory.exists():
             if not _wait_for_input_directory(results_directory, shutdown_file):
                 return
 
-        log.info(f"Starting to monitor for new BAM files in: {results_directory}")
-        event_handler = SBH.NewBamFileHandler(sturgeon_script, output, model, freq, utils, r_script, results_directory, gridion, shutdown_event)
+        app_log.info(f"Starting to monitor for new BAM files in: {results_directory}")
+        event_handler = SBH.NewBamFileHandler(sturgeon_script, output, model, freq, utils, r_script, results_directory, gridion, shutdown_event, live_run)
         observer = Observer()
         observer.schedule(event_handler, path=results_directory, recursive=False)
         observer.start()
 
         while not shutdown_event.is_set():
             if shutdown_file.exists():
-                log.info("Shutdown file detected. Initiating shutdown...")
+                app_log.info("Shutdown file detected. Initiating shutdown...")
                 event_handler.wait_for_process_completion()
                 shutdown_event.set()
             time.sleep(1)
 
-        log.info("Shutdown requested. Cleaning up...")
+        app_log.info("Shutdown requested. Cleaning up...")
     finally:
         if observer:
             observer.stop()
@@ -265,13 +316,25 @@ def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: 
         lock_manager._remove_lock()
 
         if event_handler:
-            log.info("Moving final plots and cleaning up files before shutting down Sturgeon")
+            app_log.info("Moving final plots and cleaning up files before shutting down Sturgeon")
             _file_cleanup_shutdown(output,event_handler.iteration, event_handler.plot_cnv, event_handler.plot_process)
+            try:
+                classification_data = SLP.get_final_classification(output, event_handler.iteration)
+                meta_log.info({
+                    'event': 'SturgeonResult',
+                    'final_iteration_count': classification_data['total_iterations'],
+                    'final_class': classification_data['final_classification'],
+                    'final_score': classification_data['final_score']
 
+                })
+                app_log.info(f"Final results logged: Class={classification_data['final_classification']}, Score={classification_data['final_score']}")
+
+            except Exception:
+                app_log.error("Failed to log final classification metadata.", exc_info=True)
         if shutdown_file.exists():
             shutdown_file.unlink()
-            log.info("Removed shutdown flag")
+            app_log.info("Removed shutdown flag")
         else:
-            log.info("No shutdown flag found to remove")
+            app_log.info("No shutdown flag found to remove")
 if __name__ == "__main__":
     main()
