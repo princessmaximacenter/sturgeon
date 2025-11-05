@@ -59,7 +59,7 @@ class NewBamFileHandler(FileSystemEventHandler):
         self.live_run = live_run
         self.current_process = None
 
-        """Create queue and processing thread for bam files (in chronoapp_logical order)"""
+        """Create queue and processing thread for bam files (in chronological order)"""
         self.file_queue = Queue()
         self.processing_thread = threading.Thread(target=self._process_queue,daemon=True)
         self.processing_thread.start()
