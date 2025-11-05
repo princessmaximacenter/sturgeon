@@ -16,7 +16,6 @@ from python_scripts import SturgeonLivePlotting as SLP
 from python_scripts import SturgeonLogging as SL
 
 app_log = SL._get_app_logger()
-meta_log = SL._get_metadata_logger()
 
 class LockManager:
     def __init__(self, lock_file: Path):

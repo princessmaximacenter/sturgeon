@@ -25,11 +25,8 @@ logging:
     standard:
       format: '| %(levelname)-8s | %(name)s | %(message)s'
       datefmt: '%Y-%m-%d %H:%M:%S'
-    metadata_json:
-      # Reference Metadata Class
-      '()': 'python_scripts.SturgeonLogging.MetadataJsonFormatter'
 
-  # Define stdout and metadata handlers
+  # Define stdout and file handlers
   handlers:
     console:
       class: logging.StreamHandler
@@ -37,23 +34,20 @@ logging:
       level: INFO
       stream: ext://sys.stdout
 
-    metadata:
+    # FIX: This block is now correctly indented under 'handlers'
+    file_app:
       class: logging.handlers.RotatingFileHandler
-      formatter: metadata_json
-      filename: "PLACEHOLDER STRING"
-      maxBytes: 10485760
+      formatter: standard
+      # The filename is set here. We'll make it dynamic in the Python code.
+      filename: 'PLACEHOLDER'
+      maxBytes: 10485760 # 10MB
       backupCount: 5
       level: INFO
 
   # Define entry point for loggers
   loggers:
     sturgeon.app:
-      handlers: [console]
-      level: INFO
-      propagate: False
-
-    sturgeon.metadata:
-      handlers: [metadata]
+      handlers: [console, file_app]
       level: INFO
       propagate: False
 

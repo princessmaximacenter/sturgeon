@@ -8,26 +8,13 @@ import click
 import signal
 from pathlib import Path
 import yaml
+import json
+from datetime import datetime
 from watchdog.observers import Observer
 
 from python_scripts import SturgeonBamHandling as SBH
 from python_scripts import SturgeonLogging as SL
 from python_scripts import SturgeonLivePlotting as SLP
-
-"""
-
-TODO: Betere logging van de sturgeon run voor metadata om op te slaan in een run. 
-Dit zou dan dus iets zijn van:
-    -Input parameters -> Check
-    -Highest classification at final iteration -> Check
-    -Number of iterations -> Check
-    -UUID -> Maar die doe ik nu via nextflow, dus das niet echt handig per se
-    
-    Moet even uitvogelen of je 2 verschillende logging files ofzo kan doen
-    
-    
-"""
-
 
 # Load config file with default values
 pythonPath = Path(__file__).resolve()
@@ -236,48 +223,40 @@ def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: 
     """
     Monitors a folder for new BAM files and processes them as they appear.
     """
+    try:
+        if not gui_activated:
+            output.mkdir(parents=True, exist_ok=False)
+        else:
+            output.mkdir(parents=True, exist_ok=True)
 
-
-    output.mkdir(parents=True, exist_ok=True)
+    except FileExistsError:
+        printf(f"ERROR: Output directory '{output}' already exists. Exiting sturgeon...")
+        sys.exit(1)
 
     # Initialize logging
     # app_log for printing messages to stdout
-    # meta_log for logging relevant metadata
-    SL._setup_logging(CONFIG_PATH, output)
+    SL._setup_logging(CONFIG_PATH,output)
     app_log = SL._get_app_logger()
-    meta_log = SL._get_metadata_logger()
-    METADATA_FILENAME ="sturgeon_metadata.json"
-    cli_args = locals()
-    logging_params = {
-        k: str(v) if isinstance(v, Path) else v
-        for k, v in cli_args.items()
-        if k not in ['SL', 'app_log', 'meta_log', 'CONFIG_PATH', 'wrapper', 'func']
+
+    # Initialize metadata output json
+    all_cli_args = locals()
+    loggable_params = {
+        k: str(v.resolve()) if isinstance(v, Path) else v
+        for k, v in all_cli_args.items()
+        # Filter out internal/unneeded variables
+        if k not in ['SL', 'app_log', 'CONFIG_PATH', 'wrapper', 'func', 'all_cli_args']
+    }
+    final_metadata = {
+        "RunParamaters": [loggable_params],  # In a list, as per your format
+        "RunInfo": [
+            {
+                "run_time_start": datetime.now().isoformat()
+            }
+        ],
+        "RunResults": []  # Will be populated after analysis is completed
     }
 
-    meta_log.info({
-        'event': 'InputParameters',
-        'source': 'CLI',
-        'arguments': logging_params
-    })
 
-    try:
-        if not gui_activated:
-            output_already_used  = any(
-                f.name != METADATA_FILENAME
-                for f in output.iterdir()
-            )
-            if output_already_used:
-                app_log.error("Output directory already exists and contains files")
-                meta_log.info({'event': 'StartupFail', 'reason': 'Output directory not empty'})
-                return
-
-        else:
-            app_log.info("Sturgeon started through GUI, assuming output dir handled externally")
-
-    except Exception:
-        app_log.error("An error occurred during output directory check.", exc_info=True)
-        meta_log.info({'event': 'StartupFail', 'reason': 'Directory access error'})
-        sys.exit(1)
 
     results_directory = set_results_directory(input, barcode, gridion)
     _register_signal_handlers()
@@ -320,17 +299,20 @@ def main(input: Path, output: Path, lock: Path, sturgeon_script: Path, barcode: 
             _file_cleanup_shutdown(output,event_handler.iteration, event_handler.plot_cnv, event_handler.plot_process)
             try:
                 classification_data = SLP.get_final_classification(output, event_handler.iteration)
-                meta_log.info({
-                    'event': 'SturgeonResult',
-                    'final_iteration_count': classification_data['total_iterations'],
-                    'final_class': classification_data['final_classification'],
-                    'final_score': classification_data['final_score']
-
-                })
+                final_metadata["RunResults"] = [classification_data]
                 app_log.info(f"Final results logged: Class={classification_data['final_classification']}, Score={classification_data['final_score']}")
 
-            except Exception:
-                app_log.error("Failed to log final classification metadata.", exc_info=True)
+            except Exception as e:
+                app_log.error(f"Failed to log final classification metadata: {e}", exc_info=True)
+                final_metadata["RunResults"] = [{"error": str(e)}]
+
+        metadata_file = f"{output}/sturgeon_metadata.json"
+        try:
+            with open(metadata_file, 'w') as f:
+                json.dump(final_metadata, f, indent=2)
+            app_log.info(f"Final metadata report save to {metadata_file}")
+        except Exception as e:
+            app_log.error(f"Failed to write final metadata JSON: {e}")
         if shutdown_file.exists():
             shutdown_file.unlink()
             app_log.info("Removed shutdown flag")

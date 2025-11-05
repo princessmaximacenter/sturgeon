@@ -68,9 +68,9 @@ def get_final_classification(output_dir: Path, final_iteration: int) -> dict:
         results['final_classification'] = final_class
         results['final_score'] = float(max_score)
 
-    except Exception:
-        logging.getLogger('root').error(f"Failed to read final classification tsv: {classifier_tsv}", exc_info=True)
-        return results
+    except Exception as e:
+        logging.getLogger('root').error(f"Failed to read final classification tsv {classifier_tsv}: {e}", exc_info=True)
+        results['error'] = str(e)
     return results
 
 
