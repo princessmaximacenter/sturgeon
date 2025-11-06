@@ -1,0 +1,57 @@
+# Sturgeon project configuration
+# Sturgeon Specific settings
+paths:
+  utils: "/opt/sturgeon/utils"
+  r_script: "/opt/sturgeon/utils/CNV_plot.R"
+  bam_input: "/home/prom/sturgeon/bam_pass"
+  sturgeon_script: "/opt/sturgeon/sturgeon_P2.sh"
+  results_dir: "/home/prom/sturgeon/sturgeon_results"
+  script_lock: "/home/docker/sturgeon/script.lock"
+  model: "/opt/sturgeon/sturgeon/include/models/general.zip"
+  shutdown_file: "/home/docker/sturgeon/shutdown.flag"
+barcode: 18
+freq: 1
+gridion: False
+gui_activated: False
+live_run: False
+
+# Logging settings
+logging:
+  version: 1
+  disable_existing_loggers: False
+
+  # Formatting of logs
+  formatters:
+    standard:
+      format: '| %(levelname)-8s | %(name)s | %(message)s'
+      datefmt: '%Y-%m-%d %H:%M:%S'
+
+  # Define stdout and file handlers
+  handlers:
+    console:
+      class: logging.StreamHandler
+      formatter: standard
+      level: INFO
+      stream: ext://sys.stdout
+
+    # FIX: This block is now correctly indented under 'handlers'
+    file_app:
+      class: logging.handlers.RotatingFileHandler
+      formatter: standard
+      # The filename is set here. We'll make it dynamic in the Python code.
+      filename: 'PLACEHOLDER'
+      maxBytes: 10485760 # 10MB
+      backupCount: 5
+      level: INFO
+
+  # Define entry point for loggers
+  loggers:
+    sturgeon.app:
+      handlers: [console, file_app]
+      level: INFO
+      propagate: False
+
+  # Fallback to root logger
+  root:
+    handlers: [console]
+    level: WARNING

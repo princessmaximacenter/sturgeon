@@ -10,16 +10,17 @@ cran_mirror <- "https://cran.r-project.org/"
 # 1 means use all available CPUs
 proportion_cpu_used <- 1
 
+# Biocoductor libraries are version bound to the BiocManager version
+# so we only need BiocManager version and names of libraries to install
+bioconductor_version <- "3.21"
+bio_packages <- c("QDNAseq", "DNAcopy")
+
 ## list of libraries/packages and version requirements
 packages <-  list(yaml = "2.3.9",
                   argparser = "0.7.2",
                   docstring = "1.0.0",
-                  rstudioapi = "0.16.0")
-
-# Biocoductor libraries are version bound to the BiocManager version
-# so we only need BiocManager version and names of libraries to install
-bioconductor_version <- "3.19"
-bio_packages <- c("QDNAseq", "DNAcopy")
+                  rstudioapi = "0.16.0",
+                  BiocManager = bioconductor_version)
 
 
 ################
@@ -32,7 +33,7 @@ ncpus_for_installation <- ceiling(parallel::detectCores() * proportion_cpu_used)
 # Install devtools to allow version specific installation
 install.packages("devtools", dependencies = TRUE, repos = cran_mirror,
                  Ncpus = ncpus_for_installation)
-
+BiocManager::install(version = bioconductor_version, ask = FALSE)
 # Install CRAN libraries/packages
 sapply(names(packages), FUN = function(pkg_name) {
   if (!require(pkg_name, character.only = TRUE, quietly = TRUE)) {
@@ -63,6 +64,8 @@ remove.packages(c("devtools", "BiocManager"))
 ################
 
 for (pkg in c(names(packages), bio_packages)) {
-  print(pkg)
-  stopifnot(pkg %in% installed.packages()[,'Package'])
+  if (pkg != "BiocManager") {
+    print(pkg)
+    stopifnot(pkg %in% installed.packages()[,'Package'])
+  }
 }
