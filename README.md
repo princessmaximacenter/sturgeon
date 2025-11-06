@@ -300,7 +300,8 @@ This can be installed with:
 ```commandline
 docker pull princessmaximacenter/sturgeon:v2.0.0
 ```
-### **The current docker image does not include the --live_run parameter, it assumes every run is "live"**
+### **The current docker image does not include the --live_run parameter, it assumes every run is "live" <br>**
+### **See ```https://github.com/princessmaximacenter/sturgeon/tree/v2.0.0-docker``` for code-base for docker image**
 
 Usage example: \
 The model file still needs to be installed seperately
