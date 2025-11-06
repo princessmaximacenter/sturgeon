@@ -29,7 +29,7 @@ Vermeulen, C., Pagès-Gallego, M., Kester, L. et al. Ultra-fast deep-learned CNS
 ## System requirements
 Software:
 ```
-Python version =>3.8 <3.10
+Python version =>3.9 <3.10
 modkit (or Rust/Cargo for installation): https://github.com/nanoporetech/modkit
 
 ```
@@ -45,7 +45,7 @@ An Oxford Nanopore Technology Sequencing device.
 Get the repository.
 
 ```
-git clone https://github.com/marcpaga/sturgeon
+git clone https://github.com/princessmaximacenter/sturgeon
 ```
 
 ### Optional 
@@ -67,7 +67,7 @@ cd sturgeon # if you haven't
 python3 -m venv venv
 source venv/bin/activate
 python3 -m pip install --upgrade pip
-pip3 install . --no-cache-dir
+pip3 install -e . --no-cache-dir
 ```
 
 If you use a pre-compiled binary then there's no necessity for installation.
@@ -235,7 +235,7 @@ In `demo/results` there should be a `.csv` file for each sample with the scores 
 
 Values indicate the score that the model gave to each class. Higher scores indicate higher confidence in the prediction. 
 
-## CNS type prediction while sequencing: `live`
+## CNS type prediction while sequencing: `live or post-sequencing`
 
 This program can be used during live basecalling and alignment. It watches over a folder and waits for bam files to be written there. Then it processes them as they come. This program expects that all bam files in that folder come from the same sample, therefore the amount of sequencing for that sample increases over time. In this line, each bam file will not be treated independently, but instead they will be added in a cumulative manner. 
 It is assumed that basecalling and alignment are performed directly by the ONT sequencing device. 
@@ -263,6 +263,7 @@ Options:
                               parameters are changed
   -sf, --shutdown_file PATH   Location of shutdown flag
   --gui_activated             Flag to indicate script is run through GUI
+  -lr, --live_run             Flag to indicate whether sequencing and sturgeon analysis is live. Default: FALSE
   --help                      Show this message and exit.
 ```
 ### **Important notes about usage**
@@ -279,13 +280,28 @@ The output directory cannot exist yet, it will be made by the wrapper script.
 A config.yaml file can be found in the python_scripts directory, which is intended for the use with the Docker Container. 
 
 If the --gridion flag is set to True, previous analysis runs that were performed with sturgeon V1.0.0 can be re-analyzed for validation purposes. 
+### **The config.yaml found in python_scripts/ assumes the script is run through docker. Change the parameters in config.yaml to fit your situation**
+
+## Example live run
+```commandline
+SturgeonLivePrediction --input /location/to/sequencing/run/ --output /location/to/output/live_sturgeon_run --barcode 5 \
+--freq 10 --live_run
+```
+## Example post-sequencing run
+```commandline
+SturgeonLivePrediction --input /location/to/sequencing/run/bam_pass/barcode05 --output /location/to/output/live_sturgeon_run --barcode 5 \
+--freq 10
+```
+The post-sequencing run will automatically shutdown after all bam files in the input directory have been processed. 
 
 # Docker usage
 A docker container has also been created for the live prediction. \
-This can be installed with: 
+This can be installed with:
 ```commandline
 docker pull princessmaximacenter/sturgeon:v2.0.0
 ```
+### **The current docker image does not include the --live_run parameter, it assumes every run is "live"**
+
 Usage example: \
 The model file still needs to be installed seperately
 ```commandline
