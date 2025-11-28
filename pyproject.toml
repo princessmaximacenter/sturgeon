@@ -68,7 +68,6 @@ dependencies = [
 ]
 
 [tool.hatch.metadata]
-# Allow VCS/direct references in project.dependencies
 allow-direct-references = true
 
 [tool.hatch.dependencies]

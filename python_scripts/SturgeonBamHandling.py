@@ -2,7 +2,6 @@ import sys
 import subprocess
 import pandas as pd
 from pathlib import Path
-import os
 from watchdog.events import FileSystemEventHandler, FileSystemEvent
 from queue import Queue, Empty
 import threading
@@ -14,7 +13,7 @@ from python_scripts import SturgeonLivePlotting as SLP
 from python_scripts import SturgeonLogging as SL
 
 
-log = SL._get_logger()
+app_log = SL._get_app_logger()
 
 
 class LockManager:
@@ -27,11 +26,11 @@ class LockManager:
         :return: None
         """
         if self.lock_file.exists():
-            log.error("A different instance of Sturgeon is already running. Exiting...")
+            app_log.error("A different instance of Sturgeon is already running. Exiting...")
             sys.exit(1)
         with open(self.lock_file, "w") as lf:
             lf.write("Lock file to prevent multiple instances of sturgeon.")
-        log.info("Lock file created. Proceeding with live processing...")
+        app_log.info("Lock file created. Proceeding with live processing...")
 
     def _remove_lock(self) -> None:
         """
@@ -40,11 +39,11 @@ class LockManager:
         """
         if self.lock_file.exists():
             self.lock_file.unlink()
-            log.info("Lock file removed.")
+            app_log.info("Lock file removed.")
 
 
 class NewBamFileHandler(FileSystemEventHandler):
-    def __init__(self, sturgeon_script_path: Path, output: Path, model: Path, freq: int, utils: Path, r_script_path: Path, input: Path, gridion: bool, shutdown_event: threading.Event, version2: bool, conf: Path) -> None:
+    def __init__(self, sturgeon_script_path: Path, output: Path, model: Path, freq: int, utils: Path, r_script_path: Path, input: Path, gridion: bool, shutdown_event: threading.Event, live_run: bool, version2: bool, conf: Path) -> None:
         self.iteration = 1
         self.script_path = sturgeon_script_path
         self.output = output
@@ -58,9 +57,10 @@ class NewBamFileHandler(FileSystemEventHandler):
         self.version2 = version2
         self.conf = conf
         self.shutdown_event = shutdown_event
+        self.live_run = live_run
         self.current_process = None
 
-        """Create queue and processing thread for bam files (in chronological order)"""
+        """Create queue and processing thread for bam files (in numerical order)"""
         self.file_queue = Queue()
         self.processing_thread = threading.Thread(target=self._process_queue,daemon=True)
         self.processing_thread.start()
@@ -76,7 +76,7 @@ class NewBamFileHandler(FileSystemEventHandler):
         Checks the output directory for bam files that were already present before Sturgeon was started.
         :return: None
         """
-        log.info("Checking existing bam files")
+        app_log.info("Checking existing bam files")
 
         bamFiles = []
         for bamFile in self.watch_directory.glob("*.bam"):
@@ -143,7 +143,11 @@ class NewBamFileHandler(FileSystemEventHandler):
                 self.run_script(filePath)
                 self.file_queue.task_done()
             except Empty:
-                continue
+                if not self.live_run:
+                    app_log.info("All bam files of run processed, shutting down...")
+                    self.shutdown_event.set()
+                else:
+                    continue
 
     def on_created(self, event: FileSystemEvent) -> None:
         """
@@ -152,7 +156,7 @@ class NewBamFileHandler(FileSystemEventHandler):
         :return: None
         """
         if not event.is_directory and event.src_path.endswith(".bam"):
-            log.info(f"Detected new file: {event.src_path}")
+            app_log.info(f"Detected new file: {event.src_path}")
             self.file_queue.put(Path(event.src_path))
 
 
@@ -163,7 +167,7 @@ class NewBamFileHandler(FileSystemEventHandler):
         :return: None
         """
         try:
-            log.info(f"FLAG: Starting processing of iteration_{self.iteration}")
+            app_log.info(f"FLAG: Starting processing of iteration_{self.iteration}")
             self.current_process = subprocess.Popen(
                 ["bash", str(self.script_path),
                  str(new_file),
@@ -187,11 +191,11 @@ class NewBamFileHandler(FileSystemEventHandler):
                 Path(f"{self.output}/merged_bams").mkdir(exist_ok=True)
                 self.plot_cnv()
             self.plot_process()
-            log.info(f"FLAG: iteration_{self.iteration} completed!")
+            app_log.info(f"FLAG: iteration_{self.iteration} completed!")
             self.iteration += 1
-            log.info(f"FLAG: Waiting for new bam file")
+            app_log.info(f"FLAG: Waiting for new bam file")
         except subprocess.CalledProcessError as e:
-            log.error(f"Script failed with error: {e}")
+            app_log.error(f"Script failed with error: {e}")
         finally:
             self.current_process = None
 
@@ -200,7 +204,7 @@ class NewBamFileHandler(FileSystemEventHandler):
         Plots the confidence over time plot for the current iteration
         :return: None
         """
-        log.info(f"FLAG: Creating confidence over time plot for iteration_{self.iteration}")
+        app_log.info(f"FLAG: Creating confidence over time plot for iteration_{self.iteration}")
         if self.version2 == "true":
             modelname = "cns-v2"
         else:
@@ -216,7 +220,7 @@ class NewBamFileHandler(FileSystemEventHandler):
 
 
     def _load_color_translation(self) -> dict:
-        df = pd.read_csv(f"{self.utils}/color_translation.csv") #Set in config.yaml
+        df = pd.read_csv(f"{self.utils}/color_translation.csv")
         return dict(zip(df["class"], df["color"]))
 
     def plot_cnv(self, iteration: int = None) -> None:
@@ -229,7 +233,7 @@ class NewBamFileHandler(FileSystemEventHandler):
         if iteration is not None:
             self.iteration = iteration
 
-        log.info(f"FLAG: Creating CNV plot for iteration_{self.iteration}")
+        app_log.info(f"FLAG: Creating CNV plot for iteration_{self.iteration}")
         bamToCNV = f"{self.output}/merged_bams/merged_CNV_bam.bam"
         bam_dir = Path(self.output) / "merged_bams"
         if self.gridion == True:
@@ -259,7 +263,7 @@ class NewBamFileHandler(FileSystemEventHandler):
 
     def wait_for_process_completion(self):
         if self.current_process:
-            log.info("Waiting for active subprocess to finish...")
+            app_log.info("Waiting for active subprocess to finish...")
             self.current_process.wait()
             self.current_process = None
 

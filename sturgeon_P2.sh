@@ -3,7 +3,7 @@
 This script runs the sturgeon classifier on the bam files output from the P2 basecalling and alignment.
 First modkit is used to extract the methylation signal from the bam file
 Secondly, sturgeon inputtobed is run to create the input file for the sturgeon predictor
-Lastly, sturgeon predict is run for prediction
+Lastly, sturgeon predict is run for prediction, using model version 1 or 2.
 com
 INPUT_BAM="$1"
 OUTPUT_DIR="$2"
@@ -66,7 +66,7 @@ echo "FLAG: starting sturgeon for iteration_${ITERATION}"
 
 extract_methylation_calls
 
-if [ "$Sturgeon_V2" = true ] ; then
+if [[ "$Sturgeon_V2" = "true" || "$Sturgeon_V2" = "True" ]] ; then
   sturgeon_prediction_v2
 else
   sturgeon_prediction_v1

@@ -1,6 +1,5 @@
 import matplotlib
 matplotlib.use('Agg')  # Non-interactive backend (for saving to file)
-
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.ticker import ScalarFormatter
@@ -9,7 +8,12 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 import subprocess
+import logging
 
+from python_scripts import SturgeonLogging as SL
+
+
+app_log = SL._get_app_logger()
 
 
 def write_progress_tsv(full_data: pd.DataFrame,output_folder: Path,iteration: int,modelname: str) -> pd.DataFrame:
@@ -35,6 +39,42 @@ def write_progress_tsv(full_data: pd.DataFrame,output_folder: Path,iteration: in
         mgd = pd.merge(full_data, current_results, on="class")
         mgd.rename(columns={"score": f"iteration_{iteration}"}, inplace=True)
         return mgd
+
+def get_final_classification(output_dir: Path, final_iteration: int) -> dict:
+    """
+    Reads the classification tsv and extracts the highest scoring class of the last iteration
+    :param output_dir:  Directory where the final tsv of the classifier scores is located
+    :param final_iteration: Last processed iteration
+    :return: dictionary with classification of last iteration
+    """
+
+    results = {
+        'total_iterations': final_iteration,
+        'final_classification': 'N/A',
+        'final_score': 0.0
+    }
+
+    classifier_tsv = Path(f"{output_dir}/classifier_progress_iteration_{final_iteration}.tsv")
+    if not classifier_tsv.exists():
+        return results
+
+    try:
+        df = pd.read_csv(classifier_tsv,sep='\t')
+        iteration_col = f"iteration_{final_iteration}"
+        if iteration_col not in df.columns:
+            return results
+
+        max_score = df[iteration_col].max()
+        max_row = df[df[iteration_col] == max_score].iloc[0]
+
+        final_class = max_row['class']
+        results['final_classification'] = final_class
+        results['final_score'] = float(max_score)
+
+    except Exception as e:
+        app_log.error(f"Failed to read final classification tsv {classifier_tsv}: {e}", exc_info=True)
+        results['error'] = str(e)
+    return results
 
 def plot_confidence_over_time(full_data: pd.DataFrame,output_file: str,color_translation: dict) -> None:
     """

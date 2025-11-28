@@ -4,16 +4,53 @@ paths:
   r_script: "/home/prom/sturgeon_v2/utils/CNV_plot.R"
   bam_input: "/home/prom/sturgeon_v2/bam_pass"
   sturgeon_script: "/home/prom/sturgeon_v2/sturgeon_P2.sh"
-  conf_time_plot: "/home/prom/sturgeon_v2/utils/plot.py"
+  conf_time_plot: "/home/prom/sturgeon_v2/utils/confidence_plot_v2.py"
   results_dir: "/home/prom/sturgeon_v2/sturgeon_results"
   script_lock: "/home/prom/sturgeon_v2/script.lock"
   model: " /home/prom/sturgeon_v2/include/models/general.zip"
   model_v2: "/home/prom/sturgeon_v2/cns-v2.zip"
   shutdown_file: "/home/prom/sturgeon_v2/shutdown.flag"
-logging:
-  log_level: "INFO"
 barcode: 18
 freq: 1
 gridion: False
 sturgeon_V2: False
 gui_activated: False
+live_run: False
+
+logging:
+  version: 1
+  disable_existing_loggers: False
+
+  # Formatting of logs
+  formatters:
+    standard:
+      format: '| %(levelname)-8s | %(name)s | %(message)s'
+      datefmt: '%Y-%m-%d %H:%M:%S'
+
+  # Define stdout and file handlers
+  handlers:
+    console:
+      class: logging.StreamHandler
+      formatter: standard
+      level: INFO
+      stream: ext://sys.stdout
+
+    file_app:
+      class: logging.handlers.RotatingFileHandler
+      formatter: standard
+      filename: 'PLACEHOLDER'
+      maxBytes: 10485760
+      backupCount: 5
+      level: INFO
+
+  # Define entry point for loggers
+  loggers:
+    sturgeon.app:
+      handlers: [console, file_app]
+      level: INFO
+      propagate: False
+
+    # Fallback to root logger
+    root:
+      handlers: [console]
+      level: WARNING
