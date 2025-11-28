@@ -74,6 +74,7 @@ python3 -m venv venv
 source venv/bin/activate
 python3 -m pip install --upgrade pip
 pip3 install -e . --no-cache-dir
+pip3 install wheels/sturgeon_v2-0.1.0-py3-none-any.whl
 ```
 
 If you use a pre-compiled binary then there's no necessity for installation.
