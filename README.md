@@ -119,8 +119,7 @@ Download link: https://www.dropbox.com/s/55hypw7i8tidr0a/brainstem.zip?dl=0
 
 ### `Version 2 General classifier`
 - Sturgeon V2 was trained using a relabeling strategy to make use of unlabeled data. Sturgeon V2 makes use of an ensemble of submodels. The average of these submodels is calibrated based on the sequencing depth.  
-Git repository: https://github.com/UMCUGenetics/sturgeon-v2  
-Download link: https://www.dropbox.com/scl/fi/fla0j8i62xap6bpjofq3x/cns-v2.zip?rlkey=gk6hwqxjxl4v9uq0evfd9w599&st=rpg6fom4&dl=0
+`N.B. At this moment Sturgeon V2 is not yet publicly available. This part will be updated once it is. `
 
 ## Quickstart
 

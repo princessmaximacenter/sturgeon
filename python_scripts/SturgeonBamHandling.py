@@ -43,7 +43,28 @@ class LockManager:
 
 
 class NewBamFileHandler(FileSystemEventHandler):
+    """
+    Class to handle the full processing of a new bam file:
+    -Storing bam files in correct order in the Queue
+    -Processing gridion run
+    -Running sturgeon prediction classifier and creates plots
+    """
     def __init__(self, sturgeon_script_path: Path, output: Path, model: Path, freq: int, utils: Path, r_script_path: Path, input: Path, gridion: bool, shutdown_event: threading.Event, live_run: bool, version2: bool, conf: Path) -> None:
+        """
+        Defines all necessary parameters for processing bam file
+        :param sturgeon_script_path: Path to bash script that handles sturgeon prediction
+        :param output: Path to directory where output will be stored
+        :param model: Path to model that will be used for classification
+        :param freq: Int to set after how many iterations a new CNV plot will be made
+        :param utils: Path to directory containing utils scripts
+        :param r_script_path: Path to r script for cnv plotting
+        :param input: Path to directory that contains bam files
+        :param gridion: Boolean to indicate gridion run (used for validation)
+        :param shutdown_event: Threading event for initiating shutdown when shutdown file is detected
+        :param live_run: Boolean to indicate run is during or post-sequencing
+        :param version2: Boolean to indicate whether Sturgeon Classifier V2 is used or not
+        :param conf: Path to script used to plot confidence over time if Sturgeon classifier v2 is used.
+        """
         self.iteration = 1
         self.script_path = sturgeon_script_path
         self.output = output
