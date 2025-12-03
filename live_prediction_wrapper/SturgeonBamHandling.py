@@ -1,0 +1,263 @@
+import subprocess
+import pandas as pd
+from pathlib import Path
+from watchdog.events import FileSystemEventHandler, FileSystemEvent
+from queue import Queue, Empty
+import threading
+import re
+import pysam
+
+
+from live_prediction_wrapper import SturgeonLivePlotting as SLP
+from live_prediction_wrapper import SturgeonLogging as SL
+
+app_log = SL._get_app_logger()
+
+
+
+class NewBamFileHandler(FileSystemEventHandler):
+    """
+    Class to handle the full processing of a new bam file:
+    -Storing bam files in correct order in the Queue
+    -Processing gridion run
+    -Running sturgeon prediction classifier and creates plots
+    """
+    def __init__(self, sturgeon_script_path: Path, output: Path, model: Path, freq: int, utils: Path, r_script_path: Path, input: Path, gridion: bool, shutdown_event: threading.Event, live_run: bool, version2: bool, conf: Path) -> None:
+        """
+        Defines all necessary parameters for processing bam file
+        :param sturgeon_script_path: Path to bash script that handles sturgeon prediction
+        :param output: Path to directory where output will be stored
+        :param model: Path to model that will be used for classification
+        :param freq: Int to set after how many iterations a new CNV plot will be made
+        :param utils: Path to directory containing utils scripts
+        :param r_script_path: Path to r script for cnv plotting
+        :param input: Path to directory that contains bam files
+        :param gridion: Boolean to indicate gridion run (used for validation)
+        :param shutdown_event: Threading event for initiating shutdown when shutdown file is detected
+        :param live_run: Boolean to indicate run is during or post-sequencing
+        :param version2: Boolean to indicate whether Sturgeon Classifier V2 is used or not
+        :param conf: Path to script used to plot confidence over time if Sturgeon classifier v2 is used.
+        """
+        self.iteration = 1
+        self.script_path = sturgeon_script_path
+        self.output = output
+        self.model = model
+        self.freq = freq
+        self.full_data = pd.DataFrame()
+        self.utils = utils
+        self.r_script_path = r_script_path
+        self.watch_directory = input
+        self.gridion = gridion
+        self.version2 = version2
+        self.conf = conf
+        self.shutdown_event = shutdown_event
+        self.live_run = live_run
+        self.current_process = None
+
+        """Create queue and processing thread for bam files (in numerical order)"""
+        self.file_queue = Queue()
+        self.processing_thread = threading.Thread(target=self._process_queue,daemon=True)
+        self.processing_thread.start()
+
+        """Process gridion run or already present bam files in P2 run"""
+        if gridion:
+            self._process_gridion_run()
+        else:
+            self._process_existing_results()
+
+    def _process_existing_results(self):
+        """
+        Checks the output directory for bam files that were already present before Sturgeon was started.
+        :return: None
+        """
+        app_log.info("Checking existing bam files")
+
+        bamFiles = []
+        for bamFile in self.watch_directory.glob("*.bam"):
+            # Extract trailing number before ".bam"
+            match = re.search(r"_(\d+)\.bam$", bamFile.name)
+            if match:
+                number = int(match.group(1))
+            else:
+                number = -1  # fallback if no number found
+            bamFiles.append((bamFile, number))
+
+        bamFiles.sort(key=lambda x: x[1])
+        for bamFile, _ in bamFiles:
+            self.file_queue.put(bamFile)
+
+
+    def _process_gridion_run(self) -> None:
+        """
+        Collect all the bam files from the gridion run and create symlinks for processing
+        :return: None
+        """
+        log.info("Processing files from gridion run")
+
+        bamFiles = list(self.watch_directory.glob("guppy_output_it*[0-9]*.bam"))
+        mainBamFiles = []
+        for bam in bamFiles:
+            if "unclassified" in bam.name:
+                continue
+            iteration = re.search(r"it(?:_iteration)?_(\d+)|it(\d+)", bam.name)
+            if iteration:
+                it_str = iteration.group(1) or iteration.group(2)
+                it_num = int(it_str)
+                mainBamFiles.append((bam, it_num))
+
+        #Check if unclassified barcodes were used in gridion analysis
+        if any("unclassified" in bam.name for bam in bamFiles):
+            mergedBams = []
+            for mainBam, it_num in sorted(mainBamFiles,key=lambda x: x[1]):
+                if "_iteration_" in mainBam.name:
+                    unclassified_bam = self.watch_directory / f"guppy_output_it_iteration_{it_num}_unclassified.bam"
+                else:
+                    unclassified_bam = self.watch_directory / f"guppy_output_it{it_num}_unclassified.bam"
+
+
+                mergedBam = [str(mainBam),str(unclassified_bam)]
+                Path(f"{self.output}/merged_bams").mkdir(exist_ok=True)
+                mergedPath = f"{self.output}/merged_bams/merged_it{it_num}.bam"
+                pysam.merge("-O", "BAM", "-o", mergedPath, *mergedBam)
+                mergedBams.append((mergedPath,it_num))
+
+            for mergedPath, _ in sorted(mergedBams,key=lambda x: x[1]):
+                self.file_queue.put(mergedPath)
+        else:
+            for bamPath, it_num in sorted(mainBamFiles, key=lambda x: x[1]):
+                symlink_target = Path(f"{self.output}/merged_bams/merged_it{it_num}.bam")
+                symlink_target.parent.mkdir(parents=True, exist_ok=True)
+                symlink_target.symlink_to(Path(bamPath))
+                self.file_queue.put(bamPath)
+
+    def _process_queue(self):
+        while not self.shutdown_event.is_set():
+            try:
+                filePath = self.file_queue.get(timeout=1)
+                self.run_script(filePath)
+                self.file_queue.task_done()
+            except Empty:
+                if not self.live_run:
+                    app_log.info("All bam files of run processed, shutting down...")
+                    self.shutdown_event.set()
+                else:
+                    continue
+
+    def on_created(self, event: FileSystemEvent) -> None:
+        """
+        Process newly created/detected bam file and adds to queue
+        :param event: Newly detected bam file
+        :return: None
+        """
+        if not event.is_directory and event.src_path.endswith(".bam"):
+            app_log.info(f"Detected new file: {event.src_path}")
+            self.file_queue.put(Path(event.src_path))
+
+
+    def run_script(self, new_file: Path) -> None:
+        """
+        Function that runs the sturgeon bash script and all plotting functions (confidence + CNV) for file first in queue
+        :param new_file: bam file processed from the queue
+        :return: None
+        """
+        try:
+            app_log.info(f"FLAG: Starting processing of iteration_{self.iteration}")
+            self.current_process = subprocess.Popen(
+                ["bash", str(self.script_path),
+                 str(new_file),
+                 str(self.output),
+                 str(self.model),
+                 str(self.iteration),
+                 str(self.version2),
+                 str(self.conf)
+                ])
+            self.current_process.wait()
+            self.current_process = None
+
+            if self.gridion == False:
+                ##Create symlink for merging of bams for CNV file
+                symlink_target = Path(f"{self.output}/merged_bams/bam_for_CNV_it{self.iteration}.bam")
+                symlink_target.parent.mkdir(parents=True, exist_ok=True)
+                symlink_target.symlink_to(new_file)
+            else:
+                pass
+            if self.iteration % self.freq == 0:
+                Path(f"{self.output}/merged_bams").mkdir(exist_ok=True)
+                self.plot_cnv()
+            self.plot_process()
+            app_log.info(f"FLAG: iteration_{self.iteration} completed!")
+            self.iteration += 1
+            app_log.info(f"FLAG: Waiting for new bam file")
+        except subprocess.CalledProcessError as e:
+            app_log.error(f"Script failed with error: {e}")
+        finally:
+            self.current_process = None
+
+    def plot_process(self) -> None:
+        """
+        Plots the confidence over time plot for the current iteration
+        :return: None
+        """
+        app_log.info(f"FLAG: Creating confidence over time plot for iteration_{self.iteration}")
+        if self.version2 == "true":
+            modelname = "cns-v2"
+        else:
+            modelname = self.model.stem
+        self.full_data = SLP.write_progress_tsv(self.full_data, self.output, self.iteration, modelname)
+        self.full_data.to_csv(
+            self.output / f"iteration_{self.iteration}/classifier_progress_iteration_{self.iteration}.tsv",
+            sep="\t", index=False
+        )
+        output_file = f"{self.output}/iteration_{self.iteration}/confidence_over_time_plot_iteration_{self.iteration}"
+        color_translation = self._load_color_translation()
+        SLP.plot_confidence_over_time(self.full_data, output_file, color_translation)
+
+
+    def _load_color_translation(self) -> dict:
+        df = pd.read_csv(f"{self.utils}/color_translation.csv")
+        return dict(zip(df["class"], df["color"]))
+
+    def plot_cnv(self, iteration: int = None) -> None:
+        """
+        Merges bam files to create bam file used for plotting the CNV for the current iteration
+        :param iteration: Iteration check for handling cleanup after shutdown
+        :return: None
+        """
+
+        if iteration is not None:
+            self.iteration = iteration
+
+        app_log.info(f"FLAG: Creating CNV plot for iteration_{self.iteration}")
+        bamToCNV = f"{self.output}/merged_bams/merged_CNV_bam.bam"
+        bam_dir = Path(self.output) / "merged_bams"
+        if self.gridion == True:
+            modkitBamsToMerge = sorted(
+                [
+                    bam for bam in bam_dir.glob("merged_it*.bam")
+                    if (match := re.search(r'merged_it(\d+)\.bam$', bam.name)) and int(match.group(1)) <= self.iteration
+                ],
+                key=lambda bam: int(re.search(r'merged_it(\d+)\.bam$', bam.name).group(1))
+            )
+        else:
+            modkitBamsToMerge = sorted(
+                [
+                    bam for bam in bam_dir.glob("bam_for_CNV_it*.bam")
+                    if (match := re.search(r'bam_for_CNV_it(\d+)\.bam$', bam.name)) and int(
+                    match.group(1)) <= self.iteration
+                ],
+                key=lambda bam: int(re.search(r'bam_for_CNV_it(\d+)\.bam$', bam.name).group(1))
+            )
+
+        pysam.merge("-@", "10", "-f", "-O", "BAM", "-o", bamToCNV,
+                    *map(str, modkitBamsToMerge))  # Merge all bams before modkit, before creating CNV plot
+        output_file = f"{self.output}/iteration_{self.iteration}/CNV_plot_iteration_{self.iteration}"
+        self.current_process = SLP.plot_CNV_bam(bamToCNV, output_file, self.r_script_path, self.utils)
+        self.current_process.wait()
+        self.current_process = None
+
+    def wait_for_process_completion(self):
+        if self.current_process:
+            app_log.info("Waiting for active subprocess to finish...")
+            self.current_process.wait()
+            self.current_process = None
+

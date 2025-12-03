@@ -80,7 +80,7 @@ modkit = {git = "https://github.com/nanoporetech/modkit.git", branch = "main"}
 
 [project.scripts]
 sturgeon = "sturgeon.main:run"
-SturgeonLivePrediction = "python_scripts.SturgeonLivePrediction:main"
+SturgeonLivePrediction = "live_prediction_wrapper.SturgeonLivePrediction:main"
 
 [options.package_data]
 sturgeon = "include/*"

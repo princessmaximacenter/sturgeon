@@ -6,16 +6,16 @@ import pandas as pd
 import click
 from matplotlib import pyplot as plt
 
-from python_scripts import SturgeonLogging as SL
+from live_prediction_wrapper import SturgeonLogging as SL
 app_log = SL._get_app_logger()
 
 def bar_plot(input, model,output):
     with zipfile.ZipFile(model, 'r') as zipf:
-        SL._get_app_logger().info("Loading colors dict")
+        app_log.info("Loading colors dict")
         try:
             color_dict = yaml.safe_load(zipf.open('cns-v2/classification_system.yaml'))
         except FileNotFoundError:
-            SL._get_app_logger().info("No colors dict found in zip file")
+            app_log.info("No colors dict found in zip file")
             color_dict = None
 
     prediction_df = pd.read_csv(input)
