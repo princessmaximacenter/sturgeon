@@ -40,7 +40,7 @@ As long as the output file structure is the same, the scripts should work on any
 ```
 An Oxford Nanopore Technology Sequencing device. 
 ```
-## Installation
+## Installation of classifier v1
 
 Get the repository.
 
@@ -58,6 +58,12 @@ mv DOWNLOADED_MODEL.zip sturgeon/include/models/DOWNLOADED_MODEL.zip
 ```
 
 Otherwise, during prediction, you can just pass the path to the zip file.
+## Installation of classifier v2
+
+The code for the second version of the classifier is already included in this repo. 
+You will only need to install the zip file with the model:
+* Download the cns-v2 [zip file](https://www.dropbox.com/scl/fi/fla0j8i62xap6bpjofq3x/cns-v2.zip?rlkey=gk6hwqxjxl4v9uq0evfd9w599&st=rpg6fom4&dl=0) and place at sturgeon/include/models/cns-v2.zip
+
 
 Install Sturgeon.
 
@@ -68,6 +74,7 @@ python3 -m venv venv
 source venv/bin/activate
 python3 -m pip install --upgrade pip
 pip3 install -e . --no-cache-dir
+pip3 install wheels/sturgeon_v2-0.1.0-py3-none-any.whl
 ```
 
 If you use a pre-compiled binary then there's no necessity for installation.
@@ -109,6 +116,10 @@ Merged classes (these are merged since the subtype differences are based on tumo
     - `score >= 0.95`: high confident result that the class is correct, but should be treated as inconclusive is the predicted class is `Other - Non brainstem`.
 
 Download link: https://www.dropbox.com/s/55hypw7i8tidr0a/brainstem.zip?dl=0
+
+### `Version 2 General classifier`
+- Sturgeon V2 was trained using a relabeling strategy to make use of unlabeled data. Sturgeon V2 makes use of an ensemble of submodels. The average of these submodels is calibrated based on the sequencing depth.  
+`N.B. At this moment Sturgeon V2 is not yet publicly available. This part will be updated once it is. `
 
 ## Quickstart
 
@@ -262,6 +273,7 @@ Options:
   -g, --gridion BOOLEAN       If run is a gridion verification run, some
                               parameters are changed
   -sf, --shutdown_file PATH   Location of shutdown flag
+  -v2, --version2             set to "True" or "true" to use sturgeon classifier v2. Ensure that the correct model is given with --model
   --gui_activated             Flag to indicate script is run through GUI
   -lr, --live_run             Flag to indicate whether sequencing and sturgeon analysis is live. Default: FALSE
   --help                      Show this message and exit.
@@ -300,7 +312,7 @@ This can be installed with:
 ```commandline
 docker pull princessmaximacenter/sturgeon:v2.0.0
 ```
-### **The current docker image does not include the --live_run parameter, it assumes every run is "live" <br>**
+### **The current docker image does not include the --live_run parameter or the --version2 option, it assumes every run is "live, and performed with the first version of the classifier" <br>**
 ### **See ```https://github.com/princessmaximacenter/sturgeon/tree/v2.0.0-docker``` for code-base for docker image**
 
 Usage example: \

@@ -8,9 +8,8 @@ import pandas as pd
 from pathlib import Path
 from datetime import datetime
 import subprocess
-import logging
 
-from python_scripts import SturgeonLogging as SL
+from live_prediction_wrapper import SturgeonLogging as SL
 
 
 app_log = SL._get_app_logger()

@@ -10,7 +10,7 @@ plot_cnv_from_bam_DNAcopy <- function(bam, output_file = NULL, utils_path= NULL,
   #' PLOT CNVs from the given bam file
   #' Change this to a config getter
   SOURCE_DIR = utils_path
-  cnvplot_tmpfile <- "/tmp/bins_sample_counts_tmp.bed"
+  cnvplot_tmpfile <- paste0(SOURCE_DIR, "/bins_sample_counts_tmp.bed")
 
   # Collect binned read counts and store it in a bed file
   readCounts <- QDNAseq::binReadCounts(readRDS(paste0(SOURCE_DIR, "/chm13_v2.0_bins.rds")), bamfiles = bam,

@@ -13,7 +13,7 @@ authors = [
 ]
 description = "CNS classifier"
 readme = "README.md"
-requires-python = ">=3.8, <3.10"
+requires-python = ">=3.9, <3.10"
 dependencies = [
     "cffi>=1.17.1",
     "click>=8.1.8",
@@ -63,10 +63,16 @@ dependencies = [
     "vbz-h5py-plugin>=1.0.1",
     "watchdog>=6.0.0",
     "zipp>=3.21.0",
+
+
 ]
+
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.hatch.dependencies]
 modkit = {git = "https://github.com/nanoporetech/modkit.git", branch = "main"}
+
 
 [project.urls]
 "Homepage" = "https://github.com/marcpaga/sturgeon"
@@ -74,8 +80,7 @@ modkit = {git = "https://github.com/nanoporetech/modkit.git", branch = "main"}
 
 [project.scripts]
 sturgeon = "sturgeon.main:run"
-SturgeonLivePrediction = "python_scripts.SturgeonLivePrediction:main"
-
+SturgeonLivePrediction = "live_prediction_wrapper.SturgeonLivePrediction:main"
 
 [options.package_data]
 sturgeon = "include/*"

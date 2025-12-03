@@ -15,10 +15,10 @@ import json
 from datetime import datetime
 from watchdog.observers import Observer
 
-from python_scripts import SturgeonBamHandling as SBH
-from python_scripts import SturgeonLogging as SL
-from python_scripts import SturgeonLivePlotting as SLP
-
+from live_prediction_wrapper import SturgeonBamHandling as SBH
+from live_prediction_wrapper import SturgeonLogging as SL
+from live_prediction_wrapper import SturgeonLivePlotting as SLP
+from live_prediction_wrapper import SturgeonLockManager as SLM
 
 # Load config file with default values
 pythonPath = Path(__file__).resolve()
@@ -122,7 +122,7 @@ class SturgeonPrediction:
         # Finalize setup with handling of results directory and lock file
         self.results_directory = self._set_results_directory()
         _register_signal_handlers()
-        self.lock_manager = SBH.LockManager(self.lock)
+        self.lock_manager = SLM.LockManager(self.lock)
         self.lock_manager._check_lock()
         self.app_log.info("Setup complete. Ready for execution")
 
