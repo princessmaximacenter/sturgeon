@@ -60,10 +60,8 @@ mv DOWNLOADED_MODEL.zip sturgeon/include/models/DOWNLOADED_MODEL.zip
 Otherwise, during prediction, you can just pass the path to the zip file.
 ## Installation of classifier v2
 
-The code for the second version of the classifier is already included in this repo. 
-You will only need to install the zip file with the model:
-* Download the cns-v2 [zip file](https://www.dropbox.com/scl/fi/fla0j8i62xap6bpjofq3x/cns-v2.zip?rlkey=gk6hwqxjxl4v9uq0evfd9w599&st=rpg6fom4&dl=0) and place at sturgeon/include/models/cns-v2.zip
-
+Version 2 of the Sturgeon classifier is not currently publicly available. 
+This part will be updated upon publication of version 2
 
 Install Sturgeon.
 
@@ -74,7 +72,6 @@ python3 -m venv venv
 source venv/bin/activate
 python3 -m pip install --upgrade pip
 pip3 install -e . --no-cache-dir
-pip3 install wheels/sturgeon_v2-0.1.0-py3-none-any.whl
 ```
 
 If you use a pre-compiled binary then there's no necessity for installation.
